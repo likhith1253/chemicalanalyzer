@@ -1,0 +1,17 @@
+Equipment Name,Type,Flowrate,Pressure,Temperature
+Pump-001,Pump,150.5,2.5,85.2
+Valve-A12,Valve,75.3,1.8,45.7
+Reactor-R1,Reactor,200.8,3.2,120.5
+Column-C3,Column,180.2,2.8,95.3
+Pump-002,Pump,165.7,2.7,88.9
+Valve-B24,Valve,68.9,1.6,42.1
+Reactor-R2,Reactor,210.4,3.5,125.8
+Column-C1,Column,175.6,2.6,92.4
+Pump-003,Pump,142.3,2.3,82.7
+Valve-C36,Valve,82.1,1.9,48.3
+Reactor-R3,Reactor,195.7,3.1,118.2
+Column-C2,Column,190.8,2.9,98.6
+Pump-004,Pump,158.9,2.6,87.1
+Valve-D48,Valve,71.4,1.7,44.8
+Reactor-R4,Reactor,205.2,3.3,122.9
+Column-C4,Column,185.3,2.7,96.2

@@ -1,0 +1,35 @@
+.settings-page {
+  width: 100%;
+  min-height: calc(100vh - 70px);
+}
+
+.settings-content {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.settings-section {
+  background: white;
+  border-radius: 12px;
+  padding: 30px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e2e8f0;
+}
+
+.section-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #2d3748;
+  margin: 0 0 20px 0;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f7fafc;
+}
+
+.settings-card {
+  padding: 20px;
+  background: #f7fafc;
+  border-radius: 8px;
+  color: #718096;
+}
+

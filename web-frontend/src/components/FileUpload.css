@@ -1,0 +1,271 @@
+.file-upload {
+  margin-bottom: 20px;
+}
+
+.upload-area {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border: 2px dashed rgba(102, 126, 234, 0.5);
+  border-radius: 20px;
+  padding: 40px;
+  text-align: center;
+  transition: all 0.3s ease;
+  position: relative;
+  overflow: hidden;
+  min-height: 250px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.upload-area:hover:not(.loading) {
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.05);
+  transform: translateY(-2px);
+}
+
+.upload-area.dragging {
+  border-color: #667eea;
+  background: rgba(102, 126, 234, 0.1);
+  transform: scale(1.02);
+}
+
+.upload-area.loading {
+  border-color: #48bb78;
+  background: rgba(72, 187, 120, 0.05);
+}
+
+.upload-area input[type="file"] {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+
+.upload-content {
+  pointer-events: none;
+}
+
+.upload-icon {
+  font-size: 64px;
+  margin-bottom: 20px;
+  opacity: 0.7;
+  animation: float 3s ease-in-out infinite;
+}
+
+.upload-content h3 {
+  font-size: 24px;
+  font-weight: 600;
+  color: #2d3748;
+  margin: 0 0 12px 0;
+}
+
+.upload-content p {
+  color: #718096;
+  font-size: 16px;
+  margin: 0 0 8px 0;
+}
+
+.file-hint {
+  font-size: 14px !important;
+  color: #a0aec0 !important;
+  font-style: italic;
+}
+
+.browse-btn {
+  margin-top: 20px;
+  padding: 12px 24px;
+  border: none;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: all;
+}
+
+.browse-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+}
+
+.upload-loading {
+  pointer-events: none;
+  width: 100%;
+}
+
+.loading-spinner {
+  width: 50px;
+  height: 50px;
+  border: 4px solid rgba(102, 126, 234, 0.3);
+  border-top: 4px solid #667eea;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+  margin: 0 auto 20px auto;
+}
+
+.upload-loading h3 {
+  font-size: 20px;
+  font-weight: 600;
+  color: #48bb78;
+  margin: 0 0 8px 0;
+}
+
+.upload-loading p {
+  color: #718096;
+  font-size: 16px;
+  margin: 0 0 20px 0;
+}
+
+.progress-bar {
+  width: 100%;
+  max-width: 300px;
+  height: 8px;
+  background: rgba(102, 126, 234, 0.2);
+  border-radius: 4px;
+  overflow: hidden;
+  margin: 0 auto;
+  position: relative;
+}
+
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea, #764ba2);
+  border-radius: 4px;
+  transition: width 0.3s ease;
+}
+
+.progress-text {
+  position: absolute;
+  top: -25px;
+  right: 0;
+  font-size: 12px;
+  font-weight: 600;
+  color: #667eea;
+}
+
+.upload-info {
+  margin-top: 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.info-card {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(20px);
+  border-radius: 15px;
+  padding: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
+}
+
+.info-card h4 {
+  font-size: 16px;
+  font-weight: 600;
+  color: #2d3748;
+  margin: 0 0 12px 0;
+}
+
+.info-card ul {
+  margin: 0;
+  padding-left: 20px;
+  color: #718096;
+  font-size: 14px;
+}
+
+.info-card li {
+  margin-bottom: 6px;
+}
+
+@keyframes float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-10px);
+  }
+}
+
+@keyframes spin {
+  0% {
+    transform: rotate(0deg);
+  }
+  100% {
+    transform: rotate(360deg);
+  }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+  .upload-area {
+    padding: 30px 20px;
+    min-height: 200px;
+  }
+  
+  .upload-icon {
+    font-size: 48px;
+    margin-bottom: 15px;
+  }
+  
+  .upload-content h3 {
+    font-size: 20px;
+  }
+  
+  .upload-content p {
+    font-size: 14px;
+  }
+  
+  .browse-btn {
+    padding: 10px 20px;
+    font-size: 14px;
+  }
+  
+  .upload-loading h3 {
+    font-size: 18px;
+  }
+  
+  .upload-loading p {
+    font-size: 14px;
+  }
+}
+
+@media (max-width: 480px) {
+  .upload-area {
+    padding: 20px 15px;
+  }
+  
+  .upload-icon {
+    font-size: 40px;
+    margin-bottom: 10px;
+  }
+  
+  .upload-content h3 {
+    font-size: 18px;
+  }
+  
+  .browse-btn {
+    padding: 8px 16px;
+    font-size: 13px;
+  }
+  
+  .info-card {
+    padding: 15px;
+  }
+  
+  .info-card h4 {
+    font-size: 14px;
+  }
+  
+  .info-card ul {
+    font-size: 13px;
+  }
+}

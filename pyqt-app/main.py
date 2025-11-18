@@ -1,0 +1,81 @@
+#!/usr/bin/env python3
+"""
+ChemViz - Chemical Equipment Parameter Visualizer
+Main application entry point
+"""
+
+import sys
+import os
+from pathlib import Path
+
+# Add the project root to Python path
+project_root = Path(__file__).parent
+sys.path.insert(0, str(project_root))
+
+from PyQt5.QtWidgets import QApplication, QMessageBox
+from PyQt5.QtCore import Qt
+from PyQt5.QtGui import QFont
+from widgets.login_window import LoginWindow
+from widgets.main_window import MainWindow
+from api_client import api_client
+
+
+def setup_application():
+    """Setup the Qt application"""
+    app = QApplication(sys.argv)
+    
+    # Set application properties
+    app.setApplicationName("ChemViz")
+    app.setApplicationVersion("1.0")
+    app.setOrganizationName("ChemViz")
+    
+    # Set default font
+    font = QFont("Arial", 10)
+    app.setFont(font)
+    
+    # Enable high DPI scaling
+    app.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+    app.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+    
+    return app
+
+
+def main():
+    """Main application entry point"""
+    app = setup_application()
+    
+    # Show login window first
+    login_window = LoginWindow()
+    
+    if login_window.exec_() == LoginWindow.Accepted:
+        # Login successful, show main window
+        main_window = MainWindow()
+        main_window.show()
+        
+        # Run the application
+        return_code = app.exec_()
+        
+        # Cleanup
+        api_client.logout()
+        sys.exit(return_code)
+    else:
+        # Login failed or cancelled
+        sys.exit(0)
+
+
+if __name__ == "__main__":
+    try:
+        main()
+    except Exception as e:
+        # Show error dialog for unhandled exceptions
+        app = QApplication.instance()
+        if app is None:
+            app = QApplication(sys.argv)
+        
+        QMessageBox.critical(
+            None,
+            "Application Error",
+            f"An unexpected error occurred:\n\n{str(e)}\n\n"
+            "Please check your configuration and try again."
+        )
+        sys.exit(1)

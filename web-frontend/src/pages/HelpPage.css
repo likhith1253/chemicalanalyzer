@@ -1,0 +1,65 @@
+.help-page {
+  width: 100%;
+  min-height: calc(100vh - 70px);
+}
+
+.help-content {
+  display: flex;
+  flex-direction: column;
+  gap: 30px;
+}
+
+.help-section {
+  background: white;
+  border-radius: 12px;
+  padding: 30px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  border: 1px solid #e2e8f0;
+}
+
+.section-title {
+  font-size: 20px;
+  font-weight: 600;
+  color: #2d3748;
+  margin: 0 0 20px 0;
+  padding-bottom: 12px;
+  border-bottom: 2px solid #f7fafc;
+}
+
+.help-card {
+  background: #f7fafc;
+  border-radius: 8px;
+  padding: 20px;
+  margin-bottom: 20px;
+  border-left: 4px solid #667eea;
+}
+
+.help-card h3 {
+  font-size: 18px;
+  font-weight: 600;
+  color: #2d3748;
+  margin: 0 0 12px 0;
+}
+
+.help-card p {
+  color: #4a5568;
+  margin: 0 0 12px 0;
+  line-height: 1.6;
+}
+
+.help-card ul {
+  margin: 12px 0 0 0;
+  padding-left: 20px;
+  color: #4a5568;
+}
+
+.help-card li {
+  margin-bottom: 8px;
+  line-height: 1.6;
+}
+
+.help-card strong {
+  color: #2d3748;
+  font-weight: 600;
+}
+
