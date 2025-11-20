@@ -3,3 +3,38 @@ node_modules/
 .env
 db.sqlite3
 __pycache__/
+# Environment variables
+.env
+.env.local
+backend/.env
+*.env
+
+# API Keys & Secrets
+GEMINI_API_KEY
+secrets/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+venv/
+env/
+.venv
+dist/
+build/
+
+# Node/React
+node_modules/
+build/
+.next
+npm-debug.log
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
