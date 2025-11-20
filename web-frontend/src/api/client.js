@@ -246,6 +246,21 @@ export const datasetAPI = {
       throw error;
     }
   },
+
+  // Generate AI insights
+  analyzeDataset: async (id) => {
+    try {
+      const response = await apiClient.get(`/datasets/${id}/analyze/`);
+      return response.data || {};
+    } catch (error) {
+      // Don't show toast for service unavailable errors - let component handle it
+      if (error.response?.status !== 503) {
+        const errorMessage = error.response?.data?.detail || error.response?.data?.error || 'Failed to generate AI insights.';
+        toast.error(errorMessage);
+      }
+      throw error;
+    }
+  },
 };
 
 // Helper function to check if user is authenticated

@@ -25,6 +25,9 @@ urlpatterns = [
     # Dataset PDF report
     path('datasets/<int:pk>/report/pdf/', views.DatasetPDFReportView.as_view(), name='dataset-pdf-report'),
     
+    # Dataset AI analysis
+    path('datasets/<int:pk>/analyze/', views.DatasetAnalyzeView.as_view(), name='dataset-analyze'),
+    
     # Legacy placeholder (can be removed)
     # path('', views.placeholder_view, name='placeholder'),
 ]

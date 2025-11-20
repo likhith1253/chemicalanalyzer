@@ -2,20 +2,22 @@ import React, { useState, useEffect } from 'react';
 import { datasetAPI, getCurrentUser } from '../api/client';
 import FileUpload from '../components/FileUpload';
 import SummaryCards from '../components/SummaryCards';
+import AIInsightsCard from '../components/AIInsightsCard';
 import TypeDistributionChart from '../components/TypeDistributionChart';
 import EquipmentTable from '../components/EquipmentTable';
 import './DashboardPage.css';
 
 const DashboardPage = () => {
-  const [dataset, setDataset] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState(0);
+  const [data, setData] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [progress, setProgress] = useState(0);
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    const currentUser = getCurrentUser();
-    if (currentUser) {
-      setUser(currentUser);
+    // Get current user
+    const curr = getCurrentUser();
+    if (curr) {
+      setUser(curr);
     } else {
       const token = localStorage.getItem('auth_token');
       if (token) {
@@ -27,14 +29,15 @@ const DashboardPage = () => {
   const handleFileUpload = async (file) => {
     if (!file) return;
     
-    setIsLoading(true);
-    setUploadProgress(0);
+    setLoading(true);
+    setProgress(0);
     
     try {
-      const progressInterval = setInterval(() => {
-        setUploadProgress(prev => {
+      // Fake progress
+      const interval = setInterval(() => {
+        setProgress(prev => {
           if (prev >= 90) {
-            clearInterval(progressInterval);
+            clearInterval(interval);
             return 90;
           }
           return prev + 10;
@@ -43,42 +46,42 @@ const DashboardPage = () => {
       
       const response = await datasetAPI.uploadCsv(file);
       
-      clearInterval(progressInterval);
-      setUploadProgress(100);
+      clearInterval(interval);
+      setProgress(100);
       
-      // Backend returns data directly
-      setDataset(response || {});
+      // Set data
+      setData(response || {});
       
       setTimeout(() => {
-        setUploadProgress(0);
+        setProgress(0);
       }, 1000);
       
     } catch (error) {
       console.error('Upload error:', error);
-      setUploadProgress(0);
+      setProgress(0);
     } finally {
-      setIsLoading(false);
+      setLoading(false);
     }
   };
 
   const handleRefresh = async () => {
-    if (!dataset?.id) return;
+    if (!data?.id) return;
     
     try {
-      const data = await datasetAPI.fetchDatasetDetail(dataset.id);
-      setDataset(data || {});
+      const res = await datasetAPI.fetchDatasetDetail(data.id);
+      setData(res || {});
     } catch (error) {
       console.error('Refresh error:', error);
     }
   };
 
   const handleDownloadPdf = async () => {
-    if (!dataset?.id) return;
+    if (!data?.id) return;
     
     try {
-      await datasetAPI.downloadPdfReport(dataset.id);
+      await datasetAPI.downloadPdfReport(data.id);
     } catch (error) {
-      console.error('PDF download error:', error);
+      console.error('PDF error:', error);
     }
   };
 
@@ -86,27 +89,27 @@ const DashboardPage = () => {
     <div className="dashboard-page">
       <div className="page-header">
         <div>
-          <h1 className="page-title">Dashboard 📊</h1>
+          <h1 className="page-title">Dashboard</h1>
           <p className="page-subtitle">Upload and analyze your chemical equipment data</p>
         </div>
         <div className="header-actions">
-          {dataset?.id && (
+          {data?.id && (
             <>
               <button 
                 className="action-btn refresh-btn"
                 onClick={handleRefresh}
-                disabled={isLoading}
+                disabled={loading}
                 title="Refresh data"
               >
-                🔄 Refresh
+                Refresh
               </button>
               <button 
                 className="action-btn pdf-btn"
                 onClick={handleDownloadPdf}
-                disabled={isLoading}
+                disabled={loading}
                 title="Download PDF report"
               >
-                📄 Download PDF
+                Download PDF
               </button>
             </>
           )}
@@ -119,35 +122,42 @@ const DashboardPage = () => {
           <h2 className="section-title">Upload CSV File</h2>
           <FileUpload 
             onFileUpload={handleFileUpload}
-            isLoading={isLoading}
-            uploadProgress={uploadProgress}
+            isLoading={loading}
+            uploadProgress={progress}
           />
         </section>
 
         {/* Summary Cards */}
-        {dataset && dataset.id && (
+        {data && data.id && (
           <section className="dashboard-section summary-section">
             <h2 className="section-title">Summary Statistics</h2>
-            <SummaryCards data={dataset} />
+            <SummaryCards data={data} />
+          </section>
+        )}
+
+        {/* AI Insights Card */}
+        {data && data.id && (
+          <section className="dashboard-section ai-insights-section">
+            <AIInsightsCard datasetId={data.id} />
           </section>
         )}
 
         {/* Charts Section */}
-        {dataset && dataset.id && dataset.type_distribution && (
+        {data && data.id && data.type_distribution && (
           <section className="dashboard-section charts-section">
             <h2 className="section-title">Type Distribution</h2>
             <div className="chart-wrapper">
-              <TypeDistributionChart data={dataset} />
+              <TypeDistributionChart data={data} />
             </div>
           </section>
         )}
 
         {/* Table Section */}
-        {dataset && dataset.id && dataset.preview_rows && dataset.preview_rows.length > 0 && (
+        {data && data.id && data.preview_rows && data.preview_rows.length > 0 && (
           <section className="dashboard-section table-section">
             <h2 className="section-title">Equipment Data Preview</h2>
             <EquipmentTable 
-              data={dataset.preview_rows}
+              data={data.preview_rows}
               title=""
               showPagination={true}
             />
@@ -155,9 +165,9 @@ const DashboardPage = () => {
         )}
 
         {/* Empty State */}
-        {!dataset && !isLoading && (
+        {!data && !loading && (
           <div className="empty-state">
-            <div className="empty-icon">📊</div>
+            <div className="empty-icon"></div>
             <h3>No Data Available</h3>
             <p>Upload a CSV file to start analyzing your chemical equipment data</p>
             <div className="empty-hint">
@@ -172,13 +182,13 @@ const DashboardPage = () => {
         )}
 
         {/* Loading State */}
-        {isLoading && (
+        {loading && (
           <div className="loading-state">
             <div className="loading-spinner-large"></div>
             <p>Processing your file...</p>
-            {uploadProgress > 0 && (
+            {progress > 0 && (
               <div className="progress-bar">
-                <div className="progress-fill" style={{ width: `${uploadProgress}%` }}></div>
+                <div className="progress-fill" style={{ width: `${progress}%` }}></div>
               </div>
             )}
           </div>

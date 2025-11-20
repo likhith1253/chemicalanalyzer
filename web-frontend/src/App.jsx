@@ -7,7 +7,6 @@ import RegisterPage from './pages/RegisterPage'
 import DashboardPage from './pages/DashboardPage'
 import HistoryPage from './pages/HistoryPage'
 import VisualizationsPage from './pages/VisualizationsPage'
-import SettingsPage from './pages/SettingsPage'
 import HelpPage from './pages/HelpPage'
 import { isAuthenticated } from './api/client'
 
@@ -79,7 +78,6 @@ function AppRoutes() {
           <Route path="dashboard" element={<DashboardPage />} />
           <Route path="history" element={<HistoryPage />} />
           <Route path="visualizations" element={<VisualizationsPage />} />
-          <Route path="settings" element={<SettingsPage />} />
           <Route path="help" element={<HelpPage />} />
         </Route>
         {/* Catch all route */}

@@ -10,6 +10,9 @@ from django.contrib.auth.models import User
 from django.http import HttpResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
+import pandas as pd
+from django.conf import settings
+
 from .models import Dataset, Equipment
 from .serializers import (
     DatasetSerializer, 
@@ -18,36 +21,25 @@ from .serializers import (
     LoginSerializer,
     UserSerializer
 )
-from .services import analyze_equipment_csv_from_uploaded_file, CSVParsingError
-import pandas as pd
+from .services import analyze_equipment_csv_from_uploaded_file, CSVParsingError, generate_ai_insights, AIGenerationError
 from .pdf_utils import generate_pdf_response
-from django.conf import settings
 
 
-# Authentication Views
+# Auth stuff
 
 @method_decorator(csrf_exempt, name='dispatch')
 class RegisterView(APIView):
-    """
-    User registration endpoint.
-    
-    POST /api/auth/register/
-    Accepts: username, password (email and password_confirm optional)
-    Returns EXACTLY: { "token": "<token>", "username": "<username>" }
-    """
+    # Register new user
     permission_classes = [permissions.AllowAny]
-    authentication_classes = []  # No authentication required
+    authentication_classes = []  # No auth needed
     
     def post(self, request):
-        """
-        Register a new user and return token.
-        """
+        # Handle registration
         try:
             serializer = RegisterSerializer(data=request.data)
 
             if serializer.is_valid():
                 result = serializer.save()
-                # Return EXACTLY {token, username} as specified
                 return Response(result, status=status.HTTP_201_CREATED)
 
             return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
@@ -60,26 +52,17 @@ class RegisterView(APIView):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class LoginView(APIView):
-    """
-    User login endpoint.
-    
-    POST /api/auth/login/
-    Accepts: username, password
-    Returns EXACTLY: { "token": "<token>", "username": "<username>" }
-    """
+    # Login user
     permission_classes = [permissions.AllowAny]
-    authentication_classes = []  # No authentication required
+    authentication_classes = []  # No auth needed
     
     def post(self, request):
-        """
-        Authenticate user and return token.
-        """
+        # Handle login
         try:
             serializer = LoginSerializer(data=request.data)
             
             if serializer.is_valid():
                 result = serializer.save()
-                # Return EXACTLY {token, username} as specified
                 return Response(result, status=status.HTTP_200_OK)
             
             return Response(serializer.errors, status=status.HTTP_401_UNAUTHORIZED)
@@ -91,20 +74,13 @@ class LoginView(APIView):
 
 
 class LogoutView(APIView):
-    """
-    User logout endpoint.
-    
-    POST /api/auth/logout/
-    """
+    # Logout user
     permission_classes = [permissions.IsAuthenticated]
     authentication_classes = [TokenAuthentication]
     
     def post(self, request):
-        """
-        Delete user's authentication token.
-        """
+        # Delete token
         try:
-            # Delete the user's token
             request.user.auth_token.delete()
             return Response({
                 'message': 'Logout successful'
@@ -116,41 +92,25 @@ class LogoutView(APIView):
 
 
 class UserProfileView(APIView):
-    """
-    Get current user profile.
-    
-    GET /api/auth/profile/
-    """
+    # Get user profile
     permission_classes = [permissions.IsAuthenticated]
     authentication_classes = [TokenAuthentication]
     
     def get(self, request):
-        """
-        Return current user's profile information.
-        """
+        # Return user info
         serializer = UserSerializer(request.user)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class UploadDatasetView(APIView):
-    """
-    Upload and analyze a CSV file containing equipment data.
-    
-    POST /api/upload/
-    Requires TokenAuthentication
-    """
+    # Upload CSV and analyze
     permission_classes = [permissions.IsAuthenticated]
     authentication_classes = [TokenAuthentication]
     
     def post(self, request):
-        """
-        Upload CSV file, analyze it, and save as a dataset.
-        
-        Request body: multipart/form-data with 'file' field
-        Optional: 'name' field for custom dataset name
-        """
+        # Handle file upload
         try:
-            # Validate file upload - use request.FILES.get("file")
+            # Get file
             file_obj = request.FILES.get("file")
             if not file_obj:
                 return Response({
@@ -158,24 +118,24 @@ class UploadDatasetView(APIView):
                     'detail': 'Please provide a CSV file in the "file" field'
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Validate file extension
+            # Check file type
             if not file_obj.name.lower().endswith('.csv'):
                 return Response({
                     'error': 'Invalid file type',
                     'detail': 'Only CSV files are allowed'
                 }, status=status.HTTP_400_BAD_REQUEST)
             
-            # Get optional name
+            # Get name or create default
             name = request.data.get('name', f"Dataset {timezone.now().strftime('%Y-%m-%d %H:%M')}")
             
-            # Analyze the uploaded CSV file
+            # Analyze CSV
             file_obj.seek(0)
             analysis_result = analyze_equipment_csv_from_uploaded_file(file_obj)
             
-            # Reset file pointer again for saving
+            # Reset pointer for saving
             file_obj.seek(0)
             
-            # Create dataset with the uploaded file
+            # Create dataset record
             dataset = Dataset.objects.create(
                 name=name,
                 original_filename=file_obj.name,
@@ -186,34 +146,33 @@ class UploadDatasetView(APIView):
                 avg_pressure=analysis_result['avg_pressure'],
                 avg_temperature=analysis_result['avg_temperature'],
                 type_distribution=analysis_result['type_distribution'],
-                preview_rows=analysis_result['preview_rows']  # Store preview rows
+                preview_rows=analysis_result['preview_rows']
             )
             
-            # Create equipment records from all rows in the CSV (optional, for PDF reports)
+            # Create equipment records
             from .services import normalize_column_name
             try:
-                # Try to read from the saved file
+                # Try reading saved file
                 if dataset.csv_file and hasattr(dataset.csv_file, 'path'):
                     df = pd.read_csv(dataset.csv_file.path)
                 else:
-                    # Fallback: read from uploaded file
+                    # Fallback to uploaded file
                     file_obj.seek(0)
                     df = pd.read_csv(file_obj)
             except (ValueError, AttributeError, OSError, FileNotFoundError):
-                # If file reading fails, skip equipment creation
                 df = None
             
             if df is not None:
                 df.columns = [normalize_column_name(str(col)) for col in df.columns]
                 
-                # Create equipment records from all rows
-                equipment_objects = []
+                # Create equipment objects
+                eq_objects = []
                 for _, row in df.iterrows():
-                    # Skip rows with missing required fields
+                    # Skip empty rows
                     if pd.isna(row.get('equipment_name')) and pd.isna(row.get('type')):
                         continue
                         
-                    equipment_objects.append(Equipment(
+                    eq_objects.append(Equipment(
                         dataset=dataset,
                         name=str(row.get('equipment_name', '')).strip() if not pd.isna(row.get('equipment_name')) else '',
                         type=str(row.get('type', '')).strip() if not pd.isna(row.get('type')) else '',
@@ -222,17 +181,15 @@ class UploadDatasetView(APIView):
                         temperature=float(row.get('temperature', 0)) if not pd.isna(row.get('temperature')) else 0.0
                     ))
                 
-                # Bulk create equipment records in batches to avoid memory issues
-                if equipment_objects:
+                # Bulk create in batches
+                if eq_objects:
                     batch_size = 1000
-                    for i in range(0, len(equipment_objects), batch_size):
-                        batch = equipment_objects[i:i + batch_size]
+                    for i in range(0, len(eq_objects), batch_size):
+                        batch = eq_objects[i:i + batch_size]
                         Equipment.objects.bulk_create(batch, ignore_conflicts=True)
             
-            # Return the detailed dataset information
+            # Return dataset info
             detail_serializer = DatasetDetailSerializer(dataset, context={'request': request})
-            
-            # Return summary + preview_rows as specified
             return Response(detail_serializer.data, status=status.HTTP_201_CREATED)
             
         except CSVParsingError as e:
@@ -253,30 +210,20 @@ class UploadDatasetView(APIView):
 
 
 class DatasetListView(ListAPIView):
-    """
-    List the last 5 datasets with summary information.
-    
-    GET /api/datasets/
-    Requires TokenAuthentication
-    Returns: Array of dataset summaries (last 5, most recent first)
-    """
+    # List datasets
     serializer_class = DatasetSerializer
     permission_classes = [permissions.IsAuthenticated]
     authentication_classes = [TokenAuthentication]
     
     def get_queryset(self):
-        """
-        Return the last 5 datasets ordered by upload date (most recent first).
-        """
+        # Get last 5 datasets
         return Dataset.objects.order_by('-uploaded_at')[:5]
     
     def list(self, request, *args, **kwargs):
-        """
-        Override to return array directly (not paginated).
-        """
+        # Return array
         try:
-            queryset = self.get_queryset()
-            serializer = self.get_serializer(queryset, many=True)
+            qs = self.get_queryset()
+            serializer = self.get_serializer(qs, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
         except Exception as e:
             return Response({
@@ -286,12 +233,7 @@ class DatasetListView(ListAPIView):
 
 
 class DatasetDetailView(RetrieveAPIView):
-    """
-    Get detailed information about a specific dataset including preview rows.
-    
-    GET /api/datasets/<id>/
-    Requires TokenAuthentication
-    """
+    # Get dataset details
     serializer_class = DatasetDetailSerializer
     permission_classes = [permissions.IsAuthenticated]
     authentication_classes = [TokenAuthentication]
@@ -299,18 +241,14 @@ class DatasetDetailView(RetrieveAPIView):
     lookup_field = 'id'
     
     def get_object(self):
-        """
-        Get dataset object or return 404.
-        """
-        queryset = self.get_queryset()
-        obj = get_object_or_404(queryset, id=self.kwargs['pk'])
+        # Get dataset or 404
+        qs = self.get_queryset()
+        obj = get_object_or_404(qs, id=self.kwargs['pk'])
         self.check_object_permissions(self.request, obj)
         return obj
     
     def retrieve(self, request, *args, **kwargs):
-        """
-        Override to handle errors gracefully.
-        """
+        # Handle errors
         try:
             return super().retrieve(request, *args, **kwargs)
         except Exception as e:
@@ -321,25 +259,14 @@ class DatasetDetailView(RetrieveAPIView):
 
 
 class DatasetPDFReportView(APIView):
-    """
-    Generate and return a PDF report for a specific dataset.
-    
-    GET /api/datasets/<id>/report/pdf/
-    Requires TokenAuthentication
-    """
+    # Generate PDF report
     permission_classes = [permissions.IsAuthenticated]
     authentication_classes = [TokenAuthentication]
     
     def get(self, request, pk):
-        """
-        Generate PDF report for the specified dataset.
-        
-        Returns PDF file as attachment with filename: dataset_<id>_report.pdf
-        """
+        # Generate PDF
         try:
             dataset = get_object_or_404(Dataset, id=pk)
-            
-            # Generate PDF response using the utility function
             return generate_pdf_response(dataset)
             
         except Exception as e:
@@ -349,5 +276,48 @@ class DatasetPDFReportView(APIView):
                 error_detail += f"\n{traceback.format_exc()}"
             return Response({
                 'error': 'PDF generation failed',
+                'detail': error_detail
+            }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class DatasetAnalyzeView(APIView):
+    # Generate AI insights
+    permission_classes = [permissions.IsAuthenticated]
+    authentication_classes = [TokenAuthentication]
+    
+    def get(self, request, pk):
+        # Get AI analysis
+        try:
+            dataset = get_object_or_404(Dataset, id=pk)
+            
+            # Prepare data for AI
+            summary = {
+                'total_count': dataset.total_count,
+                'avg_flowrate': dataset.avg_flowrate,
+                'avg_pressure': dataset.avg_pressure,
+                'avg_temperature': dataset.avg_temperature,
+                'type_distribution': dataset.type_distribution or {}
+            }
+            
+            # Generate insights
+            insights = generate_ai_insights(summary)
+            
+            return Response({
+                'insights': insights
+            }, status=status.HTTP_200_OK)
+            
+        except AIGenerationError as e:
+            return Response({
+                'error': 'AI generation failed',
+                'detail': str(e)
+            }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
+        
+        except Exception as e:
+            import traceback
+            error_detail = str(e)
+            if settings.DEBUG:
+                error_detail += f"\n{traceback.format_exc()}"
+            return Response({
+                'error': 'Analysis failed',
                 'detail': error_detail
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

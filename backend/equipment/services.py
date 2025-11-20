@@ -1,29 +1,25 @@
 import pandas as pd
 import re
+import os
 from typing import Dict, List, Optional, Union
 from django.core.files.uploadedfile import UploadedFile
 
 
 class CSVParsingError(Exception):
-    """Custom exception for CSV parsing errors."""
+    # CSV parsing error
+    pass
+
+
+class AIGenerationError(Exception):
+    # AI generation error
     pass
 
 
 def normalize_column_name(column_name: str) -> str:
-    """
-    Normalize column names to standard format.
-    Accepts exact column names: "Equipment Name", "Type", "Flowrate", "Pressure", "Temperature"
-    
-    Args:
-        column_name: Original column name from CSV
-        
-    Returns:
-        Normalized column name (lowercase with underscores)
-    """
-    # Strip whitespace and convert to string
+    # Normalize column names
     original = str(column_name).strip()
     
-    # Direct mapping for exact column names (case-insensitive)
+    # Direct mapping
     exact_mapping = {
         'equipment name': 'equipment_name',
         'equipmentname': 'equipment_name',
@@ -33,18 +29,16 @@ def normalize_column_name(column_name: str) -> str:
         'temperature': 'temperature',
     }
     
-    # Check exact match first (case-insensitive)
+    # Check exact match
     lower_original = original.lower().strip()
     if lower_original in exact_mapping:
         return exact_mapping[lower_original]
     
-    # Convert to lowercase, strip whitespace, replace spaces with underscores
+    # Convert to lowercase, replace spaces
     normalized = lower_original.replace(' ', '_')
-    
-    # Remove special characters except underscores
     normalized = re.sub(r'[^a-z0-9_]', '', normalized)
     
-    # Map common variations to standard names
+    # Map variations
     column_mapping = {
         'equipment_name': 'equipment_name',
         'equipmentname': 'equipment_name',
@@ -64,46 +58,28 @@ def normalize_column_name(column_name: str) -> str:
 
 
 def analyze_equipment_csv_from_uploaded_file(uploaded_file: UploadedFile) -> Dict[str, Union[int, float, Dict[str, int], List[Dict[str, Union[str, float]]]]]:
-    """
-    Analyze CSV from Django UploadedFile object.
-    
-    Args:
-        uploaded_file: Django UploadedFile object
-        
-    Returns:
-        Dictionary containing:
-        - total_count: int - number of rows
-        - avg_flowrate: float or None - average flowrate
-        - avg_pressure: float or None - average pressure  
-        - avg_temperature: float or None - average temperature
-        - type_distribution: dict - mapping of equipment types to counts
-        - preview_rows: list - first 100 rows as dictionaries
-        
-    Raises:
-        CSVParsingError: If CSV is malformed or missing required columns
-    """
+    # Analyze CSV file
     try:
-        # Reset file pointer to beginning
+        # Reset file pointer
         uploaded_file.seek(0)
         
-        # Read the uploaded file using pandas
+        # Read CSV
         df = pd.read_csv(uploaded_file)
         
-        # Check if DataFrame is empty
+        # Check if empty
         if df.empty:
             raise CSVParsingError("CSV file is empty")
         
-        # Normalize column names - use .str.strip() and .str.lower()
+        # Normalize columns
         df.columns = df.columns.str.strip().str.lower()
         df.columns = [normalize_column_name(str(col)) for col in df.columns]
         
-        # Check for required columns (after normalization)
-        # Original column names should be: "Equipment Name", "Type", "Flowrate", "Pressure", "Temperature"
+        # Check required columns
         required_columns = ['equipment_name', 'type', 'flowrate', 'pressure', 'temperature']
         missing_columns = [col for col in required_columns if col not in df.columns]
         
         if missing_columns:
-            # Map back to original expected names for error message
+            # Map back for error message
             original_names = {
                 'equipment_name': 'Equipment Name',
                 'type': 'Type',
@@ -114,41 +90,37 @@ def analyze_equipment_csv_from_uploaded_file(uploaded_file: UploadedFile) -> Dic
             missing_original = [original_names.get(col, col) for col in missing_columns]
             raise CSVParsingError(f"Missing required columns: {', '.join(missing_original)}")
         
-        # Clean data - remove rows where all required fields are empty
+        # Clean data
         df_clean = df.dropna(subset=required_columns, how='all')
         
-        # Check if we have any valid data after cleaning
+        # Check if any valid data
         if df_clean.empty:
             raise CSVParsingError("No valid data found after cleaning")
         
-        # Convert numeric columns to numeric, coercing errors to NaN
+        # Convert numeric columns
         numeric_columns = ['flowrate', 'pressure', 'temperature']
         for col in numeric_columns:
             df_clean[col] = pd.to_numeric(df_clean[col], errors='coerce')
         
-        # Calculate total count (excluding rows with all NaN values)
+        # Calculate stats
         total_count = len(df_clean.dropna(subset=required_columns, how='all'))
         
-        # Calculate averages, ignoring NaN values
+        # Calculate averages
         avg_flowrate = df_clean['flowrate'].mean() if not df_clean['flowrate'].isna().all() else None
         avg_pressure = df_clean['pressure'].mean() if not df_clean['pressure'].isna().all() else None
         avg_temperature = df_clean['temperature'].mean() if not df_clean['temperature'].isna().all() else None
         
-        # Calculate type distribution - ensure type column is string
+        # Type distribution
         df_clean['type'] = df_clean['type'].astype(str).str.strip()
         type_counts = df_clean['type'].value_counts()
         type_distribution = type_counts.to_dict()
         
-        # Prepare preview rows (limit to first 100)
+        # Preview rows (limit 100)
         preview_df = df_clean.head(100).copy()
-        
-        # Convert NaN to None for JSON serialization
         preview_df = preview_df.where(pd.notnull(preview_df), None)
-        
-        # Convert to list of dictionaries
         preview_rows = preview_df.to_dict(orient='records')
         
-        # Round averages to 2 decimal places for cleaner output
+        # Round averages
         if avg_flowrate is not None:
             avg_flowrate = round(avg_flowrate, 2)
         if avg_pressure is not None:
@@ -173,3 +145,82 @@ def analyze_equipment_csv_from_uploaded_file(uploaded_file: UploadedFile) -> Dic
         raise
     except Exception as e:
         raise CSVParsingError(f"Unexpected error: {str(e)}")
+
+
+def generate_ai_insights(dataset_summary: Dict) -> str:
+    # Generate AI insights using Gemini
+    try:
+        import google.generativeai as genai
+        from google.api_core.exceptions import NotFound, InvalidArgument
+        
+        # Check API key
+        api_key = os.getenv('GOOGLE_GEMINI_API_KEY')
+        if not api_key:
+            raise AIGenerationError("API Key not configured. Please set GOOGLE_GEMINI_API_KEY environment variable.")
+        
+        # Configure API
+        genai.configure(api_key=api_key)
+        
+        # Prepare stats
+        stats_parts = []
+        stats_parts.append(f"Total Equipment Count: {dataset_summary.get('total_count', 0)}")
+        
+        if dataset_summary.get('avg_flowrate') is not None:
+            stats_parts.append(f"Average Flowrate: {dataset_summary.get('avg_flowrate')} L/min")
+        if dataset_summary.get('avg_pressure') is not None:
+            stats_parts.append(f"Average Pressure: {dataset_summary.get('avg_pressure')} bar")
+        if dataset_summary.get('avg_temperature') is not None:
+            stats_parts.append(f"Average Temperature: {dataset_summary.get('avg_temperature')} °C")
+        
+        type_dist = dataset_summary.get('type_distribution', {})
+        if type_dist:
+            type_list = ", ".join([f"{k}: {v}" for k, v in type_dist.items()])
+            stats_parts.append(f"Equipment Types: {type_list}")
+        
+        stats_text = "\n".join(stats_parts)
+        
+        # Build prompt
+        prompt = f"""Analyze these chemical equipment statistics:
+{stats_text}
+
+Identify 3 potential anomalies or maintenance recommendations based on standard industrial engineering principles. Keep it concise (under 50 words per point). Format as a numbered list."""
+        
+        # Try multiple models
+        models_to_try = ['gemini-2.5-pro', 'gemini-1.5-pro', 'gemini-pro', 'gemini-1.0-pro']
+        last_error = None
+        response = None
+        
+        for model_name in models_to_try:
+            try:
+                model = genai.GenerativeModel(model_name)
+                response = model.generate_content(prompt)
+                break  # Success
+            except (NotFound, InvalidArgument) as model_error:
+                last_error = model_error
+                print(f"WARNING: Model '{model_name}' not available, trying next...")
+                continue
+        
+        if not response or not response.text:
+            # All models failed
+            print("ERROR: All tried models failed. Available models:")
+            try:
+                for model_info in genai.list_models():
+                    print(f"  - {model_info.name}")
+            except Exception as list_error:
+                print(f"  Could not list models: {list_error}")
+            raise AIGenerationError(f"No available models found. Tried: {', '.join(models_to_try)}. Last error: {str(last_error)}")
+        
+        # Return response
+        if response and response.text:
+            return response.text.strip()
+        else:
+            raise AIGenerationError("Empty response from AI model")
+            
+    except ImportError:
+        raise AIGenerationError("google-generativeai package not installed. Please install it using: pip install google-generativeai")
+    except (NotFound, InvalidArgument) as e:
+        raise AIGenerationError(f"Model error: {str(e)}")
+    except AIGenerationError:
+        raise
+    except Exception as e:
+        raise AIGenerationError(f"Failed to generate AI insights: {str(e)}")

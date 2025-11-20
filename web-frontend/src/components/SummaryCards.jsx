@@ -7,6 +7,10 @@ const SummaryCards = ({ data }) => {
     return null;
   }
   
+  // Check if pressure exceeds warning threshold
+  const avgPressure = data.avg_pressure !== null && data.avg_pressure !== undefined ? Number(data.avg_pressure) : null;
+  const isPressureWarning = avgPressure !== null && avgPressure > 5.0;
+
   const cards = [
     {
       title: 'Total Records',
@@ -28,8 +32,8 @@ const SummaryCards = ({ data }) => {
       value: (data.avg_pressure !== null && data.avg_pressure !== undefined) ? Number(data.avg_pressure).toFixed(2) : 'N/A',
       unit: (data.avg_pressure !== null && data.avg_pressure !== undefined) ? 'bar' : '',
       icon: '🔥',
-      color: '#ed8936',
-      bgColor: 'rgba(237, 137, 54, 0.1)',
+      color: isPressureWarning ? '#e53e3e' : '#ed8936', // Red if warning, orange otherwise
+      bgColor: isPressureWarning ? 'rgba(229, 62, 62, 0.1)' : 'rgba(237, 137, 54, 0.1)',
     },
     {
       title: 'Avg Temperature',

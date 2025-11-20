@@ -1,130 +1,130 @@
-# ChemViz Architecture Documentation
+# Chemical Equipment Analyzer Architecture
 
 ## Overview
 
-ChemViz is a three-tier application for visualizing and analyzing chemical equipment parameters. The system consists of a Django REST API backend, a React web frontend, and a PyQt5 desktop frontend, all communicating through a shared REST API.
+This is a three-tier application for analyzing chemical equipment data. It has a Django REST API backend, a React web frontend, and a PyQt5 desktop application that all talk to the same API.
 
 ## Backend (Django REST API)
 
-### Role
-The backend serves as the central data processing and storage layer, providing RESTful API endpoints for all frontend applications.
+### What it does
+The backend handles data processing and storage, providing API endpoints for the frontends.
 
-### Key Responsibilities
-- **Authentication**: Token-based user authentication using Django REST Framework
-- **Data Processing**: CSV file parsing, validation, and storage
-- **Data Analysis**: Statistical calculations (averages, counts, distributions)
-- **Report Generation**: PDF report creation using ReportLab
-- **API Endpoints**: RESTful services for all operations
+### Main tasks
+- Authentication with tokens
+- CSV file parsing and validation
+- Data analysis (averages, counts, distributions)
+- PDF report generation
+- API endpoints for all operations
 
-### Core Components
-- **Models**: `EquipmentDataset` for storing processed data
-- **Serializers**: Data validation and API response formatting
-- **Views**: API endpoint logic and business rules
-- **Services**: Data processing and PDF generation utilities
+### Core parts
+- Models: EquipmentDataset for storing data
+- Serializers: Data validation and API formatting
+- Views: API endpoint logic
+- Services: Data processing and PDF utilities
 
-### API Endpoints
+### API endpoints
 ```
-POST /api/auth/login/          # User authentication
-POST /api/upload/              # CSV file upload
-GET  /api/datasets/            # List all datasets
+POST /api/auth/login/          # User login
+POST /api/upload/              # CSV upload
+GET  /api/datasets/            # List datasets
 GET  /api/datasets/<id>/       # Get dataset details
-GET  /api/datasets/<id>/report/pdf/  # Download PDF report
+GET  /api/datasets/<id>/report/pdf/  # Download PDF
 ```
 
 ## Web Frontend (React)
 
-### Role
-The web frontend provides a modern, browser-based interface for users to interact with the ChemViz system.
+### What it does
+The web frontend provides a browser interface for users.
 
-### Key Responsibilities
-- **User Interface**: Modern glassmorphism design with responsive layout
-- **Authentication**: Login/logout functionality with token management
-- **File Upload**: Drag-and-drop CSV upload with progress tracking
-- **Data Visualization**: Interactive charts using Chart.js
-- **Dataset Management**: Browse, view, and manage datasets
-- **Report Download**: PDF report generation and download
+### Main tasks
+- User interface with modern design
+- Login/logout with token management
+- CSV upload with progress tracking
+- Data visualization with charts
+- Dataset management
+- PDF report downloads
 
-### Core Technologies
-- **React 18**: Component-based UI framework
-- **Vite**: Fast development build tool
-- **Chart.js**: Data visualization library
-- **Axios**: HTTP client with authentication interceptors
-- **TailwindCSS**: Utility-first CSS framework
+### Technologies used
+- React 18 for UI components
+- Vite for building
+- Chart.js for charts
+- Axios for API calls
+- TailwindCSS for styling
 
-### Key Features
+### Features
 - Real-time data updates
-- Loading states and error handling
-- Responsive design for all screen sizes
-- Token-based authentication with localStorage
-- Interactive charts and data tables
+- Loading and error states
+- Responsive design
+- Token authentication with localStorage
+- Interactive charts and tables
 
 ## Desktop Frontend (PyQt5)
 
-### Role
-The desktop frontend provides a native desktop application experience with offline capabilities and system integration.
+### What it does
+The desktop frontend provides a native application with offline capabilities.
 
-### Key Responsibilities
-- **Native Interface**: Desktop-optimized UI with system integration
-- **Authentication**: Secure login with token management
-- **File Management**: Direct file system access for CSV uploads
-- **Data Visualization**: Matplotlib charts for data analysis
-- **Local Storage**: Configuration and preference management
-- **PDF Handling**: Direct file system access for report downloads
+### Main tasks
+- Native desktop interface
+- Authentication with token management
+- CSV file uploads from file system
+- Data visualization with Matplotlib
+- Local configuration storage
+- PDF report downloads
 
-### Core Technologies
-- **PyQt5**: Cross-platform GUI framework
-- **Matplotlib**: Scientific plotting and visualization
-- **Requests**: HTTP client library
-- **JSON**: Configuration management
+### Technologies used
+- PyQt5 for GUI
+- Matplotlib for charts
+- Requests for HTTP calls
+- JSON for configuration
 
-### Key Features
+### Features
 - Native desktop performance
 - File dialog integration
-- Progress tracking for uploads
-- Async API calls with worker threads
-- Modern glassmorphism styling
+- Upload progress tracking
+- Async API calls
+- Modern styling
 
 ## System Interaction
 
-### Communication Flow
+### Communication
 ```
 Frontend (React/PyQt5) → HTTP/HTTPS → Django REST API → Database
 ```
 
-### Authentication Flow
-1. User submits credentials to frontend
-2. Frontend sends POST request to `/api/auth/login/`
-3. Backend validates credentials and returns auth token
-4. Frontend stores token (localStorage/memory) and includes in all subsequent requests
-5. Backend validates token on each API call
+### Authentication flow
+1. User enters credentials in frontend
+2. Frontend sends POST to /api/auth/login/
+3. Backend validates and returns auth token
+4. Frontend stores token and uses it for requests
+5. Backend validates token on each call
 
-### Data Flow
-1. **Upload**: Frontend → POST `/api/upload/` → Backend processes CSV → Database
-2. **Retrieve**: Frontend → GET `/api/datasets/` → Backend queries → JSON response
-3. **Visualization**: Frontend receives data → Renders charts/tables
-4. **Reports**: Frontend → GET `/api/datasets/<id>/report/pdf/` → Backend generates PDF → Download
+### Data flow
+1. Upload: Frontend → POST /api/upload/ → Backend processes CSV → Database
+2. Retrieve: Frontend → GET /api/datasets/ → Backend queries → JSON response
+3. Visualization: Frontend gets data → Renders charts/tables
+4. Reports: Frontend → GET /api/datasets/<id>/report/pdf/ → Backend generates PDF → Download
 
-### Shared API Contract
-Both frontends use the same REST API endpoints, ensuring:
-- **Consistency**: Same data format across platforms
-- **Maintainability**: Single backend to maintain
-- **Scalability**: Multiple frontends can use same backend
-- **Flexibility**: Easy to add new frontend platforms
+### Shared API
+Both frontends use the same REST API:
+- Consistent data format
+- Single backend to maintain
+- Scalable to multiple frontends
+- Easy to add new platforms
 
 ## Data Architecture
 
-### CSV Processing Pipeline
+### CSV processing
 ```
 CSV File → Upload → Validation → Processing → Storage → Analysis → Visualization
 ```
 
-### Data Storage
-- **Raw Data**: Original CSV content stored in database
-- **Processed Data**: Parsed equipment records with metadata
-- **Analysis Results**: Pre-calculated statistics for fast retrieval
-- **User Data**: Authentication tokens and user preferences
+### Data storage
+- Raw CSV content in database
+- Parsed equipment records
+- Pre-calculated statistics
+- User authentication data
 
-### Response Formats
+### Response formats
 ```json
 // Dataset List
 {
@@ -156,57 +156,57 @@ CSV File → Upload → Validation → Processing → Storage → Analysis → V
 }
 ```
 
-## Security Considerations
+## Security
 
 ### Authentication
 - Token-based authentication with Django REST Framework
 - Tokens stored securely (localStorage for web, memory for desktop)
-- Automatic token refresh and validation
+- Token refresh and validation
 
-### Data Validation
-- Server-side CSV validation and sanitization
-- File type restrictions and size limits
-- Input validation on all API endpoints
+### Data validation
+- Server-side CSV validation
+- File type and size limits
+- Input validation on all endpoints
 
-### CORS Configuration
+### CORS
 - Proper CORS settings for web frontend
 - Secure origin validation
-- Development vs production configuration
+- Different configs for dev/prod
 
-## Deployment Architecture
+## Deployment
 
-### Development
+### Development setup
 ```
 Django Backend (localhost:8000)
 ├── React Frontend (localhost:5173)
-└── PyQt5 Desktop (local application)
+└── PyQt5 Desktop (local app)
 ```
 
-### Production
+### Production setup
 ```
 Django Backend (production server)
-├── React Frontend (static files on CDN/web server)
-└── PyQt5 Desktop (distributed application)
+├── React Frontend (static files on web server)
+└── PyQt5 Desktop (distributed app)
 ```
 
-## Benefits of This Architecture
+## Why this architecture
 
 ### Scalability
-- Backend can serve multiple frontend types
-- Easy to add new client applications
-- Horizontal scaling of backend services
+- Backend serves multiple frontend types
+- Easy to add new clients
+- Can scale backend services
 
 ### Maintainability
-- Single source of truth for data processing
-- Shared API contract reduces duplication
-- Separation of concerns across tiers
+- Single source of truth for data
+- Shared API reduces duplication
+- Clear separation of concerns
 
-### User Experience
-- Choice of web or desktop interface
-- Consistent functionality across platforms
-- Native performance on desktop, web accessibility online
+### User experience
+- Choice of web or desktop
+- Consistent functionality
+- Native desktop performance, web accessibility
 
-### Development Efficiency
-- Parallel development of frontends
-- Shared testing and validation
+### Development efficiency
+- Parallel frontend development
+- Shared testing
 - Reusable backend components
