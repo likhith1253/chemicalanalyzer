@@ -1,12 +1,12 @@
-Django==4.2.7
 djangorestframework==3.14.0
-django-cors-headers==4.3.1
-reportlab==4.0.7
 pandas==2.1.4
-python-decouple==3.8
 python-dotenv==1.0.0
+Django==4.2.7
 psycopg2-binary==2.9.7
-Pillow==10.1.0
+google-generativeai==0.3.2  # for AI stuff
+django-cors-headers==4.3.1
+Pillow==10.1.0  # images
+python-decouple==3.8
+faker==20.1.0  # test data
 factory-boy==3.3.0
-faker==20.1.0
-google-generativeai==0.3.2
+reportlab==4.0.7  # pdfs

@@ -1,8 +1,16 @@
 import pandas as pd
 import re
 import os
-from typing import Dict, List, Optional, Union
+import google.generativeai as genai
 from django.core.files.uploadedfile import UploadedFile
+import json
+
+# lazy load gemini to avoid key check on import
+try:
+    genai.configure(api_key=os.getenv('GOOGLE_GEMINI_API_KEY'))
+    model = genai.GenerativeModel('gemini-1.5-flash')
+except:
+    model = None
 
 
 class CSVParsingError(Exception):
@@ -147,10 +155,40 @@ def analyze_equipment_csv_from_uploaded_file(uploaded_file: UploadedFile) -> Dic
         raise CSVParsingError(f"Unexpected error: {str(e)}")
 
 
-def generate_ai_insights(dataset_summary: Dict) -> str:
+def generate_ai_insights(s):
+    """s is the summary dict from analyze_equipment_csv"""
+    # check for api key
+    key = os.getenv('GOOGLE_GEMINI_API_KEY')
+    if not key:
+        return "API key missing. Set GOOGLE_GEMINI_API_KEY in .env"
+        
+    try:
+        # setup the model
+        genai.configure(api_key=key)
+        model = genai.GenerativeModel('gemini-1.5-flash')
+        
+        # make prompt
+        prompt = f"""Analyze this equipment data and provide key insights in 2-3 sentences.
+        Focus on patterns, anomalies, and potential issues. Be concise.
+        
+        Data summary:
+        {json.dumps(s, indent=2)}
+        """
+        
+        # get response
+        res = model.generate_content(prompt)
+        
+        # extract text
+        if hasattr(res, 'text'):
+            return res.text.strip()
+        return "No analysis generated"
+        
+    except Exception as e:
+        print(f"AI Error: {str(e)}")  # TODO: proper logging
+        return f"Error generating insights: {str(e)}"
+        
     # Generate AI insights using Gemini
     try:
-        import google.generativeai as genai
         from google.api_core.exceptions import NotFound, InvalidArgument
         
         # Check API key
