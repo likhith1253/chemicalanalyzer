@@ -156,8 +156,20 @@ class APIClient:
             return self._handle_response(response)
         except Exception as e:
             raise Exception(f"Failed to fetch dataset detail: {str(e)}")
-    
-    def download_pdf(self, dataset_id: int, save_path: str) -> bool:
+    def get_ai_insights(self, dataset_id: int) -> str:
+        """Get AI insights for a dataset"""
+        if not self.token:
+            raise Exception("Authentication required. Please login first.")
+        
+        url = f"{self.base_url}/datasets/{dataset_id}/analyze/"
+        
+        try:
+            headers = {'Authorization': f'Token {self.token}'}
+            response = self.session.get(url, headers=headers, timeout=60) # Longer timeout for AI
+            result = self._handle_response(response)
+            return result.get('insights', 'No insights generated.')
+        except Exception as e:
+            raise Exception(f"Failed to generate AI insights: {str(e)}")
         """Download PDF report for a dataset"""
         if not self.token:
             raise Exception("Authentication required. Please login first.")

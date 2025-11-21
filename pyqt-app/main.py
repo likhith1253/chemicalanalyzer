@@ -22,6 +22,10 @@ from api_client import api_client
 
 def setup_application():
     """Setup the Qt application"""
+    # Enable high DPI scaling - MUST be done before QApplication is created
+    QApplication.setAttribute(Qt.AA_EnableHighDpiScaling, True)
+    QApplication.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
+    
     app = QApplication(sys.argv)
     
     # Set application properties
@@ -33,33 +37,40 @@ def setup_application():
     font = QFont("Arial", 10)
     app.setFont(font)
     
-    # Enable high DPI scaling
-    app.setAttribute(Qt.AA_EnableHighDpiScaling, True)
-    app.setAttribute(Qt.AA_UseHighDpiPixmaps, True)
-    
     return app
 
 
 def main():
     """Main application entry point"""
+    print("DEBUG: Starting application setup...")
     app = setup_application()
+    print("DEBUG: Application setup complete.")
     
     # Show login window first
+    print("DEBUG: Initializing LoginWindow...")
     login_window = LoginWindow()
+    print("DEBUG: LoginWindow initialized. Showing dialog...")
     
-    if login_window.exec_() == LoginWindow.Accepted:
+    result = login_window.exec_()
+    print(f"DEBUG: LoginWindow closed with result: {result}")
+    
+    if result == LoginWindow.Accepted:
         # Login successful, show main window
+        print("DEBUG: Login accepted. Initializing MainWindow...")
         main_window = MainWindow()
         main_window.show()
+        print("DEBUG: MainWindow shown. Starting event loop...")
         
         # Run the application
         return_code = app.exec_()
+        print(f"DEBUG: Application exited with code: {return_code}")
         
         # Cleanup
         api_client.logout()
         sys.exit(return_code)
     else:
         # Login failed or cancelled
+        print("DEBUG: Login cancelled or failed. Exiting.")
         sys.exit(0)
 
 

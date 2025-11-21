@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, 
+from PyQt5.QtWidgets import (QApplication, QDialog, QWidget, QVBoxLayout, 
                             QHBoxLayout, QLabel, QLineEdit, QPushButton, 
                             QMessageBox, QFrame, QGridLayout, QSizePolicy)
 from PyQt5.QtCore import Qt, pyqtSignal, QThread, pyqtSlot
@@ -25,7 +25,7 @@ class LoginWorker(QThread):
             self.error.emit(str(e))
 
 
-class LoginWindow(QMainWindow):
+class LoginWindow(QDialog):
     """Login window for the application"""
     
     def __init__(self):
@@ -41,12 +41,8 @@ class LoginWindow(QMainWindow):
         # Set window to center of screen
         self.center_on_screen()
         
-        # Create central widget
-        central_widget = QWidget()
-        self.setCentralWidget(central_widget)
-        
         # Main layout
-        main_layout = QVBoxLayout(central_widget)
+        main_layout = QVBoxLayout(self)
         main_layout.setContentsMargins(40, 40, 40, 40)
         main_layout.setSpacing(20)
         
@@ -130,7 +126,7 @@ class LoginWindow(QMainWindow):
     def apply_styles(self):
         """Apply modern styling to the window"""
         self.setStyleSheet("""
-            QMainWindow {
+            QDialog {
                 background: qlineargradient(x1:0, y1:0, x2:1, y2:1,
                     stop:0 #f5f7fa, stop:1 #c3cfe2);
             }
@@ -140,7 +136,6 @@ class LoginWindow(QMainWindow):
                 border: 1px solid rgba(255, 255, 255, 0.3);
                 border-radius: 15px;
                 padding: 30px;
-                box-shadow: 0 10px 30px rgba(0, 0, 0, 0.1);
             }
             
             QLineEdit#usernameInput, QLineEdit#passwordInput {
@@ -191,12 +186,19 @@ class LoginWindow(QMainWindow):
     
     def center_on_screen(self):
         """Center the window on the screen"""
-        screen = QApplication.desktop().screenGeometry()
+        # Use primaryScreen for better compatibility
+        screen = QApplication.primaryScreen().availableGeometry()
         size = self.geometry()
         self.move(
             (screen.width() - size.width()) // 2,
             (screen.height() - size.height()) // 2
         )
+        
+    def showEvent(self, event):
+        """Ensure window is shown and raised"""
+        super().showEvent(event)
+        self.activateWindow()
+        self.raise_()
     
     @pyqtSlot()
     def handle_login(self):

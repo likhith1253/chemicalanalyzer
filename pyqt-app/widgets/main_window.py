@@ -24,6 +24,7 @@ class DataWorker(QThread):
     dataset_detail_loaded = pyqtSignal(dict)
     upload_progress = pyqtSignal(int)
     upload_complete = pyqtSignal(dict)
+    ai_insights_ready = pyqtSignal(str)
     error = pyqtSignal(str)
     
     def __init__(self, action, **kwargs):
@@ -48,6 +49,11 @@ class DataWorker(QThread):
                     self.msleep(100)
                 result = api_client.upload_csv(file_path)
                 self.upload_complete.emit(result)
+            elif self.action == "generate_ai_insights":
+                dataset_id = self.kwargs.get("dataset_id")
+                insights = api_client.get_ai_insights(dataset_id)
+                self.ai_insights_ready.emit(insights)
+
         except Exception as e:
             self.error.emit(str(e))
 
@@ -99,7 +105,11 @@ class ChartCanvas(FigureCanvas):
                    f'{int(height)}',
                    ha='center', va='bottom')
         
-        self.fig.tight_layout()
+        try:
+            self.fig.tight_layout()
+        except Exception as e:
+            print(f"DEBUG: tight_layout failed: {e}")
+        
         self.draw()
 
 
@@ -206,6 +216,19 @@ class MainWindow(QMainWindow):
         self.pdf_button.clicked.connect(self.handle_download_pdf)
         self.pdf_button.setEnabled(False)
         actions_layout.addWidget(self.pdf_button)
+        
+        self.ai_button = QPushButton("✨ AI Insights")
+        self.ai_button.clicked.connect(self.handle_ai_insights)
+        self.ai_button.setEnabled(False)
+        self.ai_button.setStyleSheet("""
+            QPushButton {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #ed8936, stop:1 #f6ad55);
+            }
+            QPushButton:hover {
+                background: qlineargradient(x1:0, y1:0, x2:1, y2:0, stop:0 #dd6b20, stop:1 #ed8936);
+            }
+        """)
+        actions_layout.addWidget(self.ai_button)
         
         self.refresh_button = QPushButton("🔄 Refresh")
         self.refresh_button.clicked.connect(self.load_initial_data)
@@ -487,6 +510,7 @@ class MainWindow(QMainWindow):
         
         # Enable PDF button
         self.pdf_button.setEnabled(True)
+        self.ai_button.setEnabled(True)
     
     def update_summary_cards(self, dataset):
         """Update summary cards with dataset information"""
@@ -674,6 +698,61 @@ class MainWindow(QMainWindow):
         except Exception as e:
             self.show_error(f"PDF download failed: {str(e)}")
     
+    def handle_ai_insights(self):
+        """Handle AI insights generation"""
+        if not self.current_dataset:
+            self.show_error("No dataset selected")
+            return
+            
+        self.status_bar.showMessage("Generating AI insights... This may take a moment.")
+        self.ai_button.setEnabled(False)
+        self.ai_button.setText("Generating...")
+        
+        self.worker = DataWorker("generate_ai_insights", dataset_id=self.current_dataset['id'])
+        self.worker.ai_insights_ready.connect(self.on_ai_insights_ready)
+        self.worker.error.connect(self.on_ai_error)
+        self.worker.start()
+        
+    @pyqtSlot(str)
+    def on_ai_insights_ready(self, insights):
+        """Handle AI insights ready"""
+        self.ai_button.setEnabled(True)
+        self.ai_button.setText("✨ AI Insights")
+        self.status_bar.showMessage("AI Insights generated")
+        
+        # Show insights in a dialog
+        from PyQt5.QtWidgets import QDialog, QTextEdit
+        
+        dialog = QDialog(self)
+        dialog.setWindowTitle("AI Analysis Results")
+        dialog.resize(600, 500)
+        
+        layout = QVBoxLayout(dialog)
+        
+        title = QLabel(f"Insights for {self.current_dataset.get('name', 'Dataset')}")
+        title.setFont(QFont("Arial", 14, QFont.Bold))
+        layout.addWidget(title)
+        
+        text_area = QTextEdit()
+        text_area.setReadOnly(True)
+        text_area.setMarkdown(insights) # Use setMarkdown for formatting
+        text_area.setFont(QFont("Arial", 11))
+        layout.addWidget(text_area)
+        
+        close_btn = QPushButton("Close")
+        close_btn.clicked.connect(dialog.accept)
+        layout.addWidget(close_btn)
+        
+        dialog.exec_()
+
+    @pyqtSlot(str)
+    def on_ai_error(self, error_message):
+        """Handle AI generation error"""
+        self.ai_button.setEnabled(True)
+        self.ai_button.setText("✨ AI Insights")
+        self.show_error(error_message)
+        self.status_bar.showMessage("Error generating insights")
+
     def show_error(self, message):
         """Show error message"""
         QMessageBox.critical(self, "Error", message)
