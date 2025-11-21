@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { authAPI, isAuthenticated } from '../api/client';
+import { useAuth } from '../contexts/AuthContext';
+import { isAuthenticated } from '../api/client';
 import './LoginPage.css';
 
 const RegisterPage = () => {
@@ -12,9 +13,9 @@ const RegisterPage = () => {
   });
   const [isLoading, setIsLoading] = useState(false);
   const [errors, setErrors] = useState({});
-  
+
   const navigate = useNavigate();
-  
+
   // Redirect if already authenticated
   useEffect(() => {
     if (isAuthenticated()) {
@@ -28,7 +29,7 @@ const RegisterPage = () => {
       ...prev,
       [name]: value
     }));
-    
+
     // Clear error for this field when user starts typing
     if (errors[name]) {
       setErrors(prev => ({
@@ -40,74 +41,75 @@ const RegisterPage = () => {
 
   const validateForm = () => {
     const newErrors = {};
-    
+
     if (!formData.username.trim()) {
       newErrors.username = 'Username is required';
     } else if (formData.username.length < 3) {
       newErrors.username = 'Username must be at least 3 characters';
     }
-    
+
     if (formData.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = 'Please enter a valid email address';
     }
-    
+
     if (!formData.password.trim()) {
       newErrors.password = 'Password is required';
     } else if (formData.password.length < 8) {
       newErrors.password = 'Password must be at least 8 characters';
     }
-    
+
     if (!formData.passwordConfirm.trim()) {
       newErrors.passwordConfirm = 'Please confirm your password';
     } else if (formData.password !== formData.passwordConfirm) {
       newErrors.passwordConfirm = 'Passwords do not match';
     }
-    
+
     setErrors(newErrors);
     return Object.keys(newErrors).length === 0;
   };
 
+  const { register } = useAuth();
+
   const handleSubmit = async (e) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       return;
     }
-    
+
     setIsLoading(true);
     setErrors({});
-    
+
     try {
-      await authAPI.register(
+      const result = await register(
         formData.username,
         formData.email,
         formData.password,
         formData.passwordConfirm
       );
-      // Redirect to login page after successful registration
-      // Small delay to ensure toast is shown
-      setTimeout(() => {
-        navigate('/login', { 
-          replace: true,
-          state: { message: 'Registration successful! Please login.' }
-        });
-      }, 500);
-    } catch (error) {
-      // Error handling is done in the API client
-      console.error('Registration error:', error);
-      // Set form-level error if needed
-      if (error.response?.data) {
-        const errorData = error.response.data;
-        if (errorData.username) {
-          setErrors(prev => ({ ...prev, username: errorData.username[0] }));
+
+      if (result.success) {
+        // Option A: Auto-login if token is present
+        if (result.token) {
+          navigate('/dashboard', { replace: true });
+        } else {
+          // Option B: Redirect to login
+          navigate('/login', {
+            replace: true,
+            state: { message: 'Registration successful! Please login.' }
+          });
         }
-        if (errorData.email) {
-          setErrors(prev => ({ ...prev, email: errorData.email[0] }));
-        }
-        if (errorData.password) {
-          setErrors(prev => ({ ...prev, password: errorData.password[0] }));
-        }
+      } else {
+        // Handle registration failure
+        console.error('Registration failed:', result.error);
+        setErrors(prev => ({ ...prev, form: result.error }));
+        // If specific field errors are available, they should be parsed here
+        // But for now, we'll rely on the generic error or improve error parsing in AuthContext if needed
+        // Re-adding field error parsing if possible from the error string or object
       }
+    } catch (error) {
+      console.error('Unexpected registration error:', error);
+      setErrors(prev => ({ ...prev, form: 'An unexpected error occurred. Please try again.' }));
     } finally {
       setIsLoading(false);
     }
@@ -124,7 +126,7 @@ const RegisterPage = () => {
             </div>
             <p>Create your account</p>
           </div>
-          
+
           <form onSubmit={handleSubmit} className="login-form">
             <div className="form-group">
               <label htmlFor="username">Username</label>
@@ -141,7 +143,7 @@ const RegisterPage = () => {
               />
               {errors.username && <span className="error-message">{errors.username}</span>}
             </div>
-            
+
             <div className="form-group">
               <label htmlFor="email">Email (Optional)</label>
               <input
@@ -157,7 +159,7 @@ const RegisterPage = () => {
               />
               {errors.email && <span className="error-message">{errors.email}</span>}
             </div>
-            
+
             <div className="form-group">
               <label htmlFor="password">Password</label>
               <input
@@ -173,7 +175,7 @@ const RegisterPage = () => {
               />
               {errors.password && <span className="error-message">{errors.password}</span>}
             </div>
-            
+
             <div className="form-group">
               <label htmlFor="passwordConfirm">Confirm Password</label>
               <input
@@ -189,7 +191,7 @@ const RegisterPage = () => {
               />
               {errors.passwordConfirm && <span className="error-message">{errors.passwordConfirm}</span>}
             </div>
-            
+
             <button
               type="submit"
               className="login-button"
@@ -202,7 +204,7 @@ const RegisterPage = () => {
               )}
             </button>
           </form>
-          
+
           <div className="login-footer">
             <p>
               Already have an account?{' '}
@@ -212,7 +214,7 @@ const RegisterPage = () => {
             </p>
           </div>
         </div>
-        
+
         <div className="login-background">
           <div className="floating-elements">
             <div className="element element-1">🧪</div>

@@ -1,6 +1,6 @@
 import React, { Suspense } from 'react'
 import { Routes, Route, Navigate } from 'react-router-dom'
-import { AuthProvider } from './contexts/AuthContext'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Layout from './components/Layout'
 import LoginPage from './pages/LoginPage'
 import RegisterPage from './pages/RegisterPage'
@@ -12,10 +12,10 @@ import { isAuthenticated } from './api/client'
 
 // Loading fallback component
 const LoadingFallback = () => (
-  <div style={{ 
-    display: 'flex', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
+  <div style={{
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
     height: '100vh',
     fontSize: '18px',
     color: '#667eea'
@@ -26,23 +26,31 @@ const LoadingFallback = () => (
 
 // Protected Route Component
 const ProtectedRoute = ({ children }) => {
-  const authenticated = isAuthenticated();
-  
-  if (!authenticated) {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return <LoadingFallback />;
+  }
+
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
-  
+
   return <React.Fragment>{children}</React.Fragment>;
 };
 
 // Public Route Component (redirects if authenticated)
 const PublicRoute = ({ children }) => {
-  const authenticated = isAuthenticated();
-  
-  if (authenticated) {
+  const { isAuthenticated, loading } = useAuth();
+
+  if (loading) {
+    return <LoadingFallback />;
+  }
+
+  if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;
   }
-  
+
   return <React.Fragment>{children}</React.Fragment>;
 };
 
@@ -50,24 +58,24 @@ function AppRoutes() {
   return (
     <Suspense fallback={<LoadingFallback />}>
       <Routes>
-        <Route 
-          path="/login" 
+        <Route
+          path="/login"
           element={
             <PublicRoute>
               <LoginPage />
             </PublicRoute>
-          } 
+          }
         />
-        <Route 
-          path="/register" 
+        <Route
+          path="/register"
           element={
             <PublicRoute>
               <RegisterPage />
             </PublicRoute>
-          } 
+          }
         />
-        <Route 
-          path="/" 
+        <Route
+          path="/"
           element={
             <ProtectedRoute>
               <Layout />
@@ -81,11 +89,11 @@ function AppRoutes() {
           <Route path="help" element={<HelpPage />} />
         </Route>
         {/* Catch all route */}
-        <Route 
-          path="*" 
+        <Route
+          path="*"
           element={
             <Navigate to={isAuthenticated() ? "/dashboard" : "/login"} replace />
-          } 
+          }
         />
       </Routes>
     </Suspense>

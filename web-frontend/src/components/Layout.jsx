@@ -23,7 +23,6 @@ const Layout = () => {
     { path: '/dashboard', label: 'Dashboard', icon: '📊' },
     { path: '/history', label: 'History', icon: '📚' },
     { path: '/visualizations', label: 'Visualizations', icon: '📈' },
-    { path: '/settings', label: 'Settings', icon: '⚙️' },
     { path: '/help', label: 'Help', icon: '❓' },
   ];
 
@@ -36,7 +35,7 @@ const Layout = () => {
             <span className="sidebar-icon">⚗️</span>
             {sidebarOpen && <span className="sidebar-name">ChemViz</span>}
           </div>
-          <button 
+          <button
             className="sidebar-toggle"
             onClick={() => setSidebarOpen(!sidebarOpen)}
             aria-label="Toggle sidebar"
@@ -44,7 +43,7 @@ const Layout = () => {
             {sidebarOpen ? '◀' : '▶'}
           </button>
         </div>
-        
+
         <nav className="sidebar-nav">
           {navItems.map((item) => (
             <Link

@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
-import { authAPI, getCurrentUser, isAuthenticated } from '../api/client';
+import { authAPI, getCurrentUser, isAuthenticated as checkAuthToken } from '../api/client';
 
 const AuthContext = createContext();
 
@@ -14,43 +14,91 @@ export const useAuth = () => {
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
-    // Check if user is authenticated on mount
-    if (isAuthenticated()) {
-      const currentUser = getCurrentUser();
-      if (currentUser) {
-        setUser(currentUser);
+    const initAuth = async () => {
+      try {
+        // Check if we have a token locally
+        if (checkAuthToken()) {
+          // Optimistically set user from local storage if available
+          const storedUser = getCurrentUser();
+          if (storedUser) {
+            setUser(storedUser);
+            setIsAuthenticated(true);
+          }
+
+          // Verify with backend to ensure token is valid
+          try {
+            const profile = await authAPI.getProfile();
+            setUser(profile);
+            setIsAuthenticated(true);
+          } catch (error) {
+            // Token is invalid or expired
+            console.warn('Session verification failed:', error);
+            setUser(null);
+            setIsAuthenticated(false);
+            // Optional: Clear invalid token
+            // localStorage.removeItem('auth_token'); 
+            // We let the interceptor handle strict 401s, but here we just update state
+          }
+        } else {
+          setUser(null);
+          setIsAuthenticated(false);
+        }
+      } catch (error) {
+        console.error('Auth initialization error:', error);
+        setUser(null);
+        setIsAuthenticated(false);
+      } finally {
+        setLoading(false);
       }
-    }
-    setLoading(false);
+    };
+
+    initAuth();
   }, []);
 
   const login = async (username, password) => {
     try {
       const response = await authAPI.login(username, password);
-      
-      // Get user data from response or localStorage
-      const userData = response?.user || getCurrentUser();
-      
-      if (userData) {
-        setUser(userData);
-      } else {
-        // If no user in response, try to get from localStorage
-        const storedUser = getCurrentUser();
-        if (storedUser) {
-          setUser(storedUser);
-        }
-      }
-      
+
+      const userData = response.user;
+      setUser(userData);
+      setIsAuthenticated(true);
+
       return { success: true, user: userData };
     } catch (error) {
-      const errorMessage = error.response?.data?.detail || 
-                          error.response?.data?.error || 
-                          error.message || 
-                          'Login failed';
-      return { 
-        success: false, 
+      const errorMessage = error.response?.data?.detail ||
+        error.response?.data?.error ||
+        error.message ||
+        'Login failed';
+      return {
+        success: false,
+        error: errorMessage
+      };
+    }
+  };
+
+  const register = async (username, email, password, passwordConfirm) => {
+    try {
+      const response = await authAPI.register(username, email, password, passwordConfirm);
+
+      // If registration returns a token (auto-login)
+      if (response.token) {
+        const userData = response.user;
+        setUser(userData);
+        setIsAuthenticated(true);
+        return { success: true, user: userData, token: response.token };
+      }
+
+      return { success: true };
+    } catch (error) {
+      const errorMessage = error.response?.data?.detail ||
+        error.response?.data?.error ||
+        error.message ||
+        'Registration failed';
+      return {
+        success: false,
         error: errorMessage
       };
     }
@@ -63,15 +111,17 @@ export const AuthProvider = ({ children }) => {
       console.error('Logout error:', error);
     } finally {
       setUser(null);
+      setIsAuthenticated(false);
     }
   };
 
   const value = {
     user,
     login,
+    register,
     logout,
     loading,
-    isAuthenticated: isAuthenticated(),
+    isAuthenticated,
   };
 
   return (

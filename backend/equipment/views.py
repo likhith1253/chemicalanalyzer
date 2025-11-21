@@ -29,12 +29,13 @@ from .pdf_utils import generate_pdf_response
 
 @method_decorator(csrf_exempt, name='dispatch')
 class RegisterView(APIView):
-    # Register new user
+    """
+    Handles user registration by validating input data and creating a new user account.
+    """
     permission_classes = [permissions.AllowAny]
-    authentication_classes = []  # No auth needed
+    authentication_classes = []  # Public endpoint
     
     def post(self, request):
-        # Handle registration
         try:
             serializer = RegisterSerializer(data=request.data)
 
@@ -52,12 +53,13 @@ class RegisterView(APIView):
 
 @method_decorator(csrf_exempt, name='dispatch')
 class LoginView(APIView):
-    # Login user
+    """
+    Authenticates a user and returns an auth token.
+    """
     permission_classes = [permissions.AllowAny]
-    authentication_classes = []  # No auth needed
+    authentication_classes = []  # Public endpoint
     
     def post(self, request):
-        # Handle login
         try:
             serializer = LoginSerializer(data=request.data)
             
@@ -74,12 +76,13 @@ class LoginView(APIView):
 
 
 class LogoutView(APIView):
-    # Logout user
+    """
+    Invalidates the user's auth token to log them out.
+    """
     permission_classes = [permissions.IsAuthenticated]
     authentication_classes = [TokenAuthentication]
     
     def post(self, request):
-        # Delete token
         try:
             request.user.auth_token.delete()
             return Response({
@@ -92,25 +95,27 @@ class LogoutView(APIView):
 
 
 class UserProfileView(APIView):
-    # Get user profile
+    """
+    Retrieves the profile information for the currently authenticated user.
+    """
     permission_classes = [permissions.IsAuthenticated]
     authentication_classes = [TokenAuthentication]
     
     def get(self, request):
-        # Return user info
         serializer = UserSerializer(request.user)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class UploadDatasetView(APIView):
-    # Upload CSV and analyze
+    """
+    Handles CSV file uploads, performs initial analysis, and stores the dataset.
+    """
     permission_classes = [permissions.IsAuthenticated]
     authentication_classes = [TokenAuthentication]
     
     def post(self, request):
-        # Handle file upload
         try:
-            # Get file
+            # Validate file presence
             file_obj = request.FILES.get("file")
             if not file_obj:
                 return Response({

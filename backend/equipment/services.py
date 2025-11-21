@@ -1,33 +1,39 @@
+from pathlib import Path
 import pandas as pd
 import re
 import os
 import google.generativeai as genai
 from django.core.files.uploadedfile import UploadedFile
 import json
+from typing import Dict, List, Union, Optional
 
-# lazy load gemini to avoid key check on import
+# Lazy load Gemini to avoid key check on import
 try:
     genai.configure(api_key=os.getenv('GOOGLE_GEMINI_API_KEY'))
-    model = genai.GenerativeModel('gemini-1.5-flash')
-except:
-    model = None
+except Exception:
+    # Configuration might fail if key is missing, but that's okay at import time
+    pass
 
 
 class CSVParsingError(Exception):
-    # CSV parsing error
+    """Custom exception for CSV parsing errors."""
     pass
 
 
 class AIGenerationError(Exception):
-    # AI generation error
+    """Custom exception for AI generation errors."""
     pass
 
 
 def normalize_column_name(column_name: str) -> str:
-    # Normalize column names
+    """
+    Normalize column names to a standard format (snake_case).
+    Handles common variations of equipment data column names.
+    """
     original = str(column_name).strip()
+    lower_original = original.lower()
     
-    # Direct mapping
+    # Direct mapping for exact matches (fast path)
     exact_mapping = {
         'equipment name': 'equipment_name',
         'equipmentname': 'equipment_name',
@@ -37,169 +43,155 @@ def normalize_column_name(column_name: str) -> str:
         'temperature': 'temperature',
     }
     
-    # Check exact match
-    lower_original = original.lower().strip()
     if lower_original in exact_mapping:
         return exact_mapping[lower_original]
     
-    # Convert to lowercase, replace spaces
+    # Standardize: lowercase and replace spaces with underscores
     normalized = lower_original.replace(' ', '_')
+    # Remove non-alphanumeric characters except underscores
     normalized = re.sub(r'[^a-z0-9_]', '', normalized)
     
-    # Map variations
+    # Map common variations to standard names
     column_mapping = {
-        'equipment_name': 'equipment_name',
-        'equipmentname': 'equipment_name',
         'name': 'equipment_name',
         'equipment': 'equipment_name',
-        'type': 'type',
         'equipment_type': 'type',
-        'flowrate': 'flowrate',
         'flow_rate': 'flowrate',
         'flow': 'flowrate',
-        'pressure': 'pressure',
         'temp': 'temperature',
-        'temperature': 'temperature',
     }
     
     return column_mapping.get(normalized, normalized)
 
 
 def analyze_equipment_csv_from_uploaded_file(uploaded_file: UploadedFile) -> Dict[str, Union[int, float, Dict[str, int], List[Dict[str, Union[str, float]]]]]:
-    # Analyze CSV file
+    """
+    Parses an uploaded CSV file, validates it, and calculates summary statistics.
+    Returns a dictionary with total count, averages, type distribution, and preview rows.
+    """
     try:
-        # Reset file pointer
+        # Reset file pointer to ensure we read from the beginning
         uploaded_file.seek(0)
         
         # Read CSV
         df = pd.read_csv(uploaded_file)
         
-        # Check if empty
         if df.empty:
-            raise CSVParsingError("CSV file is empty")
+            raise CSVParsingError("The uploaded CSV file is empty.")
         
-        # Normalize columns
+        # Normalize column names
         df.columns = df.columns.str.strip().str.lower()
         df.columns = [normalize_column_name(str(col)) for col in df.columns]
         
-        # Check required columns
+        # Define and check for required columns
         required_columns = ['equipment_name', 'type', 'flowrate', 'pressure', 'temperature']
         missing_columns = [col for col in required_columns if col not in df.columns]
         
         if missing_columns:
-            # Map back for error message
-            original_names = {
+            # Map back to readable names for the error message
+            readable_names = {
                 'equipment_name': 'Equipment Name',
                 'type': 'Type',
                 'flowrate': 'Flowrate',
                 'pressure': 'Pressure',
                 'temperature': 'Temperature'
             }
-            missing_original = [original_names.get(col, col) for col in missing_columns]
-            raise CSVParsingError(f"Missing required columns: {', '.join(missing_original)}")
+            missing_readable = [readable_names.get(col, col) for col in missing_columns]
+            raise CSVParsingError(f"Missing required columns: {', '.join(missing_readable)}")
         
-        # Clean data
+        # Drop rows where ALL required columns are missing (keep rows with partial data if useful, 
+        # but for this strict analysis, we might want to be careful. 
+        # The original logic dropped if ALL were missing. Let's stick to that but maybe stricter?)
+        # Actually, let's drop rows that are completely empty in the required columns.
         df_clean = df.dropna(subset=required_columns, how='all')
         
-        # Check if any valid data
         if df_clean.empty:
-            raise CSVParsingError("No valid data found after cleaning")
+            raise CSVParsingError("No valid data found after cleaning empty rows.")
         
-        # Convert numeric columns
+        # Convert numeric columns to numeric types, coercing errors to NaN
         numeric_columns = ['flowrate', 'pressure', 'temperature']
         for col in numeric_columns:
             df_clean[col] = pd.to_numeric(df_clean[col], errors='coerce')
         
-        # Calculate stats
-        total_count = len(df_clean.dropna(subset=required_columns, how='all'))
+        # Calculate statistics
+        # We only count rows that have at least some data
+        total_count = len(df_clean)
         
-        # Calculate averages
-        avg_flowrate = df_clean['flowrate'].mean() if not df_clean['flowrate'].isna().all() else None
-        avg_pressure = df_clean['pressure'].mean() if not df_clean['pressure'].isna().all() else None
-        avg_temperature = df_clean['temperature'].mean() if not df_clean['temperature'].isna().all() else None
+        # Calculate averages (ignoring NaNs)
+        avg_flowrate = df_clean['flowrate'].mean()
+        avg_pressure = df_clean['pressure'].mean()
+        avg_temperature = df_clean['temperature'].mean()
         
         # Type distribution
-        df_clean['type'] = df_clean['type'].astype(str).str.strip()
+        # Ensure 'type' is string and handle missing values
+        df_clean['type'] = df_clean['type'].fillna('Unknown').astype(str).str.strip()
         type_counts = df_clean['type'].value_counts()
         type_distribution = type_counts.to_dict()
         
-        # Preview rows (limit 100)
+        # Prepare preview rows (limit to first 100)
         preview_df = df_clean.head(100).copy()
+        # Replace NaN with None for JSON serialization
         preview_df = preview_df.where(pd.notnull(preview_df), None)
         preview_rows = preview_df.to_dict(orient='records')
         
-        # Round averages
-        if avg_flowrate is not None:
-            avg_flowrate = round(avg_flowrate, 2)
-        if avg_pressure is not None:
-            avg_pressure = round(avg_pressure, 2)
-        if avg_temperature is not None:
-            avg_temperature = round(avg_temperature, 2)
-        
+        # Helper to safely round values
+        def safe_round(val):
+            return round(val, 2) if pd.notnull(val) else None
+
         return {
             'total_count': int(total_count),
-            'avg_flowrate': float(avg_flowrate) if avg_flowrate is not None else None,
-            'avg_pressure': float(avg_pressure) if avg_pressure is not None else None,
-            'avg_temperature': float(avg_temperature) if avg_temperature is not None else None,
+            'avg_flowrate': safe_round(avg_flowrate),
+            'avg_pressure': safe_round(avg_pressure),
+            'avg_temperature': safe_round(avg_temperature),
             'type_distribution': type_distribution,
             'preview_rows': preview_rows
         }
         
     except pd.errors.EmptyDataError:
-        raise CSVParsingError("CSV file is empty or malformed")
+        raise CSVParsingError("CSV file is empty or malformed.")
     except pd.errors.ParserError as e:
         raise CSVParsingError(f"CSV parsing error: {str(e)}")
     except CSVParsingError:
         raise
     except Exception as e:
-        raise CSVParsingError(f"Unexpected error: {str(e)}")
+        raise CSVParsingError(f"Unexpected error during CSV analysis: {str(e)}")
 
 
-def generate_ai_insights(s):
-    """s is the summary dict from analyze_equipment_csv"""
-    # check for api key
-    key = os.getenv('GOOGLE_GEMINI_API_KEY')
-    if not key:
-        return "API key missing. Set GOOGLE_GEMINI_API_KEY in .env"
-        
-    try:
-        # setup the model
-        genai.configure(api_key=key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        
-        # make prompt
-        prompt = f"""Analyze this equipment data and provide key insights in 2-3 sentences.
-        Focus on patterns, anomalies, and potential issues. Be concise.
-        
-        Data summary:
-        {json.dumps(s, indent=2)}
-        """
-        
-        # get response
-        res = model.generate_content(prompt)
-        
-        # extract text
-        if hasattr(res, 'text'):
-            return res.text.strip()
-        return "No analysis generated"
-        
-    except Exception as e:
-        print(f"AI Error: {str(e)}")  # TODO: proper logging
-        return f"Error generating insights: {str(e)}"
-        
-    # Generate AI insights using Gemini
+def generate_ai_insights(dataset_summary: Dict) -> str:
+    """
+    Generates AI insights using Google's Gemini model based on the provided dataset summary.
+    Tries multiple model versions if the preferred one is unavailable.
+    """
     try:
         from google.api_core.exceptions import NotFound, InvalidArgument
+        from dotenv import load_dotenv
         
-        # Check API key
+        # 1. Validate API Key
         api_key = os.getenv('GOOGLE_GEMINI_API_KEY')
-        if not api_key:
-            raise AIGenerationError("API Key not configured. Please set GOOGLE_GEMINI_API_KEY environment variable.")
         
-        # Configure API
+        # Fallback: Try loading .env explicitly if key is missing
+        if not api_key:
+            print("DEBUG: API Key not found in env, attempting to load .env file explicitly...")
+            try:
+                # Assuming standard Django structure: backend/chemviz_backend/settings.py -> backend/
+                # This file is in backend/equipment/services.py -> backend/
+                base_dir = Path(__file__).resolve().parent.parent
+                env_path = base_dir / '.env'
+                if env_path.exists():
+                    print(f"DEBUG: Loading .env from {env_path}")
+                    load_dotenv(env_path)
+                    api_key = os.getenv('GOOGLE_GEMINI_API_KEY')
+            except Exception as e:
+                print(f"DEBUG: Failed to load .env explicitly: {e}")
+
+        if not api_key:
+            # Raise error so frontend shows the error UI instead of typing this as "insights"
+            raise AIGenerationError("API Key missing. Please configure GOOGLE_GEMINI_API_KEY in your environment variables.")
+        
+        # 2. Configure Gemini
         genai.configure(api_key=api_key)
         
-        # Prepare stats
+        # 3. Prepare the prompt with data statistics
         stats_parts = []
         stats_parts.append(f"Total Equipment Count: {dataset_summary.get('total_count', 0)}")
         
@@ -212,53 +204,53 @@ def generate_ai_insights(s):
         
         type_dist = dataset_summary.get('type_distribution', {})
         if type_dist:
-            type_list = ", ".join([f"{k}: {v}" for k, v in type_dist.items()])
-            stats_parts.append(f"Equipment Types: {type_list}")
+            # Limit to top 5 types to avoid cluttering the prompt
+            sorted_types = sorted(type_dist.items(), key=lambda x: x[1], reverse=True)[:5]
+            type_list = ", ".join([f"{k}: {v}" for k, v in sorted_types])
+            stats_parts.append(f"Top Equipment Types: {type_list}")
         
         stats_text = "\n".join(stats_parts)
         
-        # Build prompt
-        prompt = f"""Analyze these chemical equipment statistics:
-{stats_text}
-
-Identify 3 potential anomalies or maintenance recommendations based on standard industrial engineering principles. Keep it concise (under 50 words per point). Format as a numbered list."""
+        prompt = f"""
+        Analyze these chemical equipment statistics as a senior industrial engineer:
         
-        # Try multiple models
-        models_to_try = ['gemini-2.5-pro', 'gemini-1.5-pro', 'gemini-pro', 'gemini-1.0-pro']
-        last_error = None
+        {stats_text}
+        
+        Please provide 3 key insights or maintenance recommendations.
+        Focus on potential anomalies, efficiency, or safety concerns based on standard industrial values.
+        Keep the response concise (bullet points, under 50 words per point).
+        """
+        
+        # 4. Try to generate content using available models
+        # Priority list of models to try
+        models_to_try = ['gemini-2.0-flash-exp', 'gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro']
+        
         response = None
+        last_error = None
         
         for model_name in models_to_try:
             try:
                 model = genai.GenerativeModel(model_name)
                 response = model.generate_content(prompt)
-                break  # Success
-            except (NotFound, InvalidArgument) as model_error:
-                last_error = model_error
-                print(f"WARNING: Model '{model_name}' not available, trying next...")
+                if response and response.text:
+                    break # Success!
+            except (NotFound, InvalidArgument) as e:
+                last_error = e
+                continue # Try next model
+            except Exception as e:
+                last_error = e
                 continue
-        
+                
         if not response or not response.text:
-            # All models failed
-            print("ERROR: All tried models failed. Available models:")
-            try:
-                for model_info in genai.list_models():
-                    print(f"  - {model_info.name}")
-            except Exception as list_error:
-                print(f"  Could not list models: {list_error}")
-            raise AIGenerationError(f"No available models found. Tried: {', '.join(models_to_try)}. Last error: {str(last_error)}")
-        
-        # Return response
-        if response and response.text:
-            return response.text.strip()
-        else:
-            raise AIGenerationError("Empty response from AI model")
+            error_msg = str(last_error) if last_error else "Unknown error"
+            raise AIGenerationError(f"Failed to generate insights with any available model. Last error: {error_msg}")
+            
+        return response.text.strip()
             
     except ImportError:
-        raise AIGenerationError("google-generativeai package not installed. Please install it using: pip install google-generativeai")
-    except (NotFound, InvalidArgument) as e:
-        raise AIGenerationError(f"Model error: {str(e)}")
-    except AIGenerationError:
-        raise
+        return "Error: google-generativeai package is not installed."
     except Exception as e:
-        raise AIGenerationError(f"Failed to generate AI insights: {str(e)}")
+        # Log the full error for debugging (in a real app, use a logger)
+        print(f"AI Generation Error: {str(e)}")
+        return f"Unable to generate insights at this time. Error: {str(e)}"
+
