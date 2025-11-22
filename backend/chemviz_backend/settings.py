@@ -23,9 +23,13 @@ DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
 
 # Allowed hosts
 ALLOWED_HOSTS = [
-    host.strip()
-    for host in os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
+ 
+    "chemicalanalyzer.onrender.com",
+    "localhost",
+    "127.0.0.1",
 ]
+
+
 
 # -------------------------------
 # Installed apps
