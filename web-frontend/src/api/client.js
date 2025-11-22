@@ -1,7 +1,8 @@
 import axios from 'axios';
 import toast from 'react-hot-toast';
 
-import { API_BASE_URL } from '../config';
+// PRODUCTION URL - HARDCODED TO FIX VERCEL CACHE
+const API_BASE_URL = "https://chemicalanalyzer.onrender.com/api";
 
 console.log('🔌 API Base URL:', API_BASE_URL);
 
@@ -86,7 +87,7 @@ export const authAPI = {
         throw new Error('No token received from server');
       }
       
-      // Store token in localStorage
+      // Store token in sessionStorage
       sessionStorage.setItem('auth_token', token);
       
       // Store user object with username
