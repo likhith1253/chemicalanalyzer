@@ -42,6 +42,14 @@ def api_root(request):
             "dataset_pdf_report": "/api/datasets/<id>/report/pdf/"
         }
     })
+def equipment_root(request):
+    return JsonResponse({
+        "message": "Equipment API Root",
+        "endpoints": {
+            "upload": "/api/upload/",
+            "datasets": "/api/datasets/",
+        }
+    })
 
 urlpatterns = [
     path('', equipment_root, name='equipment-root'),
