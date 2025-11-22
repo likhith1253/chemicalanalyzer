@@ -1,111 +1,57 @@
-# ChemViz - PyQt5 Desktop Application
+# PyQt Desktop App Configuration
 
-A desktop application for visualizing and analyzing chemical equipment parameters from CSV data, integrated with Django REST API.
+This file configures the desktop application settings.
 
-## Features
+## API Configuration
 
-- **User Authentication**: Login with Django REST API using token-based authentication
-- **CSV Upload**: Upload CSV files to the backend for processing
-- **Data Visualization**: Interactive charts showing equipment type distribution
-- **Dataset Management**: View and manage historical datasets
-- **PDF Reports**: Download PDF reports for datasets
-- **Modern UI**: Glassmorphism design with responsive layout
-
-## Requirements
-
-- Python 3.7+
-- PyQt5
-- matplotlib
-- requests
-- numpy
-
-## Installation
-
-1. Create a virtual environment:
-```bash
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
-
-2. Install dependencies:
-```bash
-pip install -r requirements.txt
-```
-
-3. Configure API settings:
-Edit `config.json` to match your Django backend URL:
-```json
-{
-  "api": {
-    "base_url": "http://localhost:8000/api",
-    "timeout": 30
-  }
-}
-```
+The desktop app connects to the same backend as the web app:
+- **Production**: `https://chemicalanalyzer.onrender.com/api`
+- **Local Development**: `http://127.0.0.1:8000/api`
 
 ## Usage
 
-1. Make sure your Django backend is running on the configured URL
-2. Run the application:
-```bash
-python main.py
+Edit `config.json` to switch between production and local:
+
+```json
+{
+    "api": {
+        "base_url": "https://chemicalanalyzer.onrender.com/api",
+        "timeout": 30
+    }
+}
 ```
 
-3. Login with your Django credentials
-4. Upload CSV files, view datasets, and generate reports
+For local development, change `base_url` to `http://127.0.0.1:8000/api`.
 
-## Project Structure
+## Running the Desktop App
 
-```
-pyqt-app/
-├── main.py                 # Application entry point
-├── api_client.py           # Django REST API client
-├── config.json             # Configuration file
-├── requirements.txt        # Python dependencies
-├── widgets/
-│   ├── __init__.py
-│   ├── login_window.py     # Login window
-│   └── main_window.py      # Main dashboard window
-└── README.md              # This file
+```powershell
+.\run_desktop_app.ps1
 ```
 
-## API Integration
+This will:
+1. Create/activate virtual environment
+2. Install dependencies (PyQt5, matplotlib, etc.)
+3. Launch the desktop application
 
-The application integrates with the following Django REST API endpoints:
+## Features
 
-- `POST /auth/login/` - User authentication
-- `POST /upload/` - CSV file upload
-- `GET /datasets/` - List datasets
-- `GET /datasets/<id>/` - Get dataset details
-- `GET /datasets/<id>/report/pdf/` - Download PDF report
-
-## Development
-
-### Adding New Features
-
-1. Add new API methods to `api_client.py`
-2. Update UI components in `widgets/` directory
-3. Test with running Django backend
-
-### Configuration
-
-The application reads configuration from `config.json`:
-
-- `api.base_url`: Django backend API URL
-- `api.timeout`: Request timeout in seconds
+- Same backend API as web app
+- Token-based authentication
+- Upload CSV files
+- View data tables and charts
+- Generate PDF reports
+- System tray integration
 
 ## Troubleshooting
 
-### Common Issues
+**"Connection refused" error:**
+- Check that backend is running (either locally or on Render)
+- Verify `config.json` has correct `base_url`
 
-1. **Connection Error**: Ensure Django backend is running and URL is correct
-2. **Authentication Error**: Check credentials and token configuration
-3. **Import Error**: Install all requirements from `requirements.txt`
+**"Login failed" error:**
+- Use same credentials as web app
+- Make sure backend API is accessible
 
-### Debug Mode
-
-To enable debug logging, modify `api_client.py` to print debug information.
-
-## License
-
-This project is part of the ChemViz chemical equipment parameter visualizer system.
+**Missing dependencies:**
+- Run: `pip install -r requirements.txt`
