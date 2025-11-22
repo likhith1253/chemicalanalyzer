@@ -221,36 +221,19 @@ def generate_ai_insights(dataset_summary: Dict) -> str:
         Keep the response concise (bullet points, under 50 words per point).
         """
         
-        # 4. Try to generate content using available models
-        # Use full model names with models/ prefix
-        models_to_try = [
-            'models/gemini-1.5-flash',
-            'models/gemini-1.5-pro', 
-            'models/gemini-2.0-flash-exp',
-            'gemini-pro'  # Legacy fallback
-        ]
-        
-        response = None
-        last_error = None
-        
-        for model_name in models_to_try:
-            try:
-                model = genai.GenerativeModel(model_name)
-                response = model.generate_content(prompt)
-                if response and response.text:
-                    break # Success!
-            except (NotFound, InvalidArgument) as e:
-                last_error = e
-                continue # Try next model
-            except Exception as e:
-                last_error = e
-                continue
-                
-        if not response or not response.text:
-            error_msg = str(last_error) if last_error else "Unknown error"
-            raise AIGenerationError(f"Failed to generate insights with any available model. Last error: {error_msg}")
+        # 4. Generate content using Gemini
+        try:
+            # Use gemini-2.5-flash (verified working with current API key)
+            model = genai.GenerativeModel('gemini-2.5-flash')
+            response = model.generate_content(prompt)
             
-        return response.text.strip()
+            if not response or not response.text:
+                raise AIGenerationError("Model returned empty response")
+                
+            return response.text.strip()
+        except Exception as e:
+            error_msg = str(e)
+            raise AIGenerationError(f"Failed to generate insights: {error_msg}")
             
     except ImportError:
         return "Error: google-generativeai package is not installed."
