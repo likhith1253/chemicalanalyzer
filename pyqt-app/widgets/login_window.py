@@ -299,7 +299,10 @@ class LoginWindow(QDialog):
         
         # Call registration API
         try:
+            print(f"DEBUG: Attempting registration for user: {username}")
+            print(f"DEBUG: API Base URL: {api_client.get_base_url()}")
             result = api_client.register(username, password, password_confirm=password)
+            print(f"DEBUG: Registration successful! Result: {result}")
             
             # Re-enable buttons
             self.register_button.setEnabled(True)
@@ -318,6 +321,9 @@ class LoginWindow(QDialog):
             self.password_input.setFocus()
             
         except Exception as e:
+            print(f"DEBUG: Registration error: {type(e).__name__}")
+            print(f"DEBUG: Error message: {str(e)}")
+            
             # Re-enable buttons
             self.register_button.setEnabled(True)
             self.login_button.setEnabled(True)
@@ -326,6 +332,8 @@ class LoginWindow(QDialog):
             error_msg = str(e)
             if "already exists" in error_msg.lower():
                 self.show_error("Username already taken. Please choose another.")
+            elif "connection" in error_msg.lower() or "network" in error_msg.lower():
+                self.show_error("Cannot connect to server. Please check your internet connection.")
             else:
                 self.show_error(f"Registration failed: {error_msg}")
     
