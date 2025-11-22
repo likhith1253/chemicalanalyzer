@@ -222,8 +222,8 @@ def generate_ai_insights(dataset_summary: Dict) -> str:
         """
         
         # 4. Try to generate content using available models
-        # Priority list of models to try (stable models first)
-        models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp', 'gemini-2.0-flash', 'gemini-pro']
+        # Priority list: Try legacy gemini-pro first for older API keys
+        models_to_try = ['gemini-pro', 'gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-2.0-flash-exp']
         
         response = None
         last_error = None
