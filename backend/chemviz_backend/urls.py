@@ -15,7 +15,6 @@ Including another URLconf
     2. Add a URL to urlpatterns:  path('blog/', include('blog.urls'))
 """
 
-
 from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
@@ -42,17 +41,8 @@ def api_root(request):
             "dataset_pdf_report": "/api/datasets/<id>/report/pdf/"
         }
     })
-def equipment_root(request):
-    return JsonResponse({
-        "message": "Equipment API Root",
-        "endpoints": {
-            "upload": "/api/upload/",
-            "datasets": "/api/datasets/",
-        }
-    })
 
 urlpatterns = [
-  
     path('admin/', admin.site.urls),
     path('api/', include('equipment.urls')),
     path('api-auth/', include('rest_framework.urls')),
@@ -62,17 +52,3 @@ urlpatterns = [
 # Serve media files in development
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
-def equipment_root(request):
-    return JsonResponse({
-        "message": "Equipment API root",
-        "endpoints": {
-            "upload": "/api/upload/",
-            "datasets": "/api/datasets/",
-            "auth": {
-                "register": "/api/auth/register/",
-                "login": "/api/auth/login/",
-                "logout": "/api/auth/logout/",
-                "profile": "/api/auth/profile/"
-            }
-        }
-    })

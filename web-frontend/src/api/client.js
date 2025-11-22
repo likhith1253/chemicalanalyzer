@@ -18,7 +18,7 @@ export const apiClient = axios.create({
 // Request interceptor to add auth token
 apiClient.interceptors.request.use(
   (config) => {
-    const token = localStorage.getItem('auth_token');
+    const token = sessionStorage.getItem('auth_token');
     if (token) {
       config.headers.Authorization = `Token ${token}`;
     }
@@ -38,7 +38,7 @@ apiClient.interceptors.response.use(
     // Handle authentication errors
     if (error.response?.status === 401) {
       // Clear token and redirect to login
-      localStorage.removeItem('auth_token');
+      sessionStorage.removeItem('auth_token');
       window.location.href = '/login';
       toast.error('Session expired. Please login again.');
     }
@@ -88,11 +88,11 @@ export const authAPI = {
       }
       
       // Store token in localStorage
-      localStorage.setItem('auth_token', token);
+      sessionStorage.setItem('auth_token', token);
       
       // Store user object with username
       const user = { username: username };
-      localStorage.setItem('user', JSON.stringify(user));
+      sessionStorage.setItem('user', JSON.stringify(user));
       
       toast.success('Login successful!');
       return { token, user };
@@ -123,9 +123,9 @@ export const authAPI = {
       
       // If registration returns a token, store it (some APIs do this)
       if (responseData.token) {
-        localStorage.setItem('auth_token', responseData.token);
+        sessionStorage.setItem('auth_token', responseData.token);
         if (responseData.user) {
-          localStorage.setItem('user', JSON.stringify(responseData.user));
+          sessionStorage.setItem('user', JSON.stringify(responseData.user));
         }
       }
       
@@ -153,8 +153,8 @@ export const authAPI = {
       console.error('Logout error:', error);
     } finally {
       // Clear local storage
-      localStorage.removeItem('auth_token');
-      localStorage.removeItem('user');
+      sessionStorage.removeItem('auth_token');
+      sessionStorage.removeItem('user');
       toast.success('Logged out successfully');
     }
   },
@@ -265,20 +265,20 @@ export const datasetAPI = {
 
 // Helper function to check if user is authenticated
 export const isAuthenticated = () => {
-  const token = localStorage.getItem('auth_token');
+  const token = sessionStorage.getItem('auth_token');
   return !!token;
 };
 
 // Helper function to get current user
 export const getCurrentUser = () => {
-  const userStr = localStorage.getItem('user');
+  const userStr = sessionStorage.getItem('user');
   return userStr ? JSON.parse(userStr) : null;
 };
 
 // Helper function to clear auth data
 export const clearAuthData = () => {
-  localStorage.removeItem('auth_token');
-  localStorage.removeItem('user');
+  sessionStorage.removeItem('auth_token');
+  sessionStorage.removeItem('user');
 };
 
 export default apiClient;
