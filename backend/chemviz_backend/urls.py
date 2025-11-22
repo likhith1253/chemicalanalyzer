@@ -52,7 +52,7 @@ def equipment_root(request):
     })
 
 urlpatterns = [
-    path('', equipment_root, name='equipment-root'),
+  
     path('admin/', admin.site.urls),
     path('api/', include('equipment.urls')),
     path('api-auth/', include('rest_framework.urls')),
