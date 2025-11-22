@@ -1,1 +1,6 @@
-﻿{"api":{"base_url":"https://chemicalanalyzer.onrender.com/api","timeout":30}}
+{
+  "api": {
+    "base_url": "https://chemicalanalyzer.onrender.com/api",
+    "timeout": 30
+  }
+}
