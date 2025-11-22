@@ -165,6 +165,10 @@ REST_FRAMEWORK = {
 # CORS & CSRF
 # -------------------------------
 
+# Allow ALL origins to fix "Network Error" for any client IP
+CORS_ALLOW_ALL_ORIGINS = True
+
+# Keep these for reference, but ALL are allowed now
 CORS_ALLOWED_ORIGINS = [
     "https://chemicalanalyzer-final.vercel.app",
     "http://localhost:5173",
