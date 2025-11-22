@@ -112,6 +112,7 @@ export const authAPI = {
   
   register: async (username, email, password, passwordConfirm) => {
     try {
+      console.log('Sending registration request:', { username, email, password: '***', password_confirm: '***' });
       const response = await apiClient.post('/auth/register/', {
         username,
         email: email || '',
@@ -119,6 +120,7 @@ export const authAPI = {
         password_confirm: passwordConfirm,
       });
       
+      console.log('Registration response:', response.data);
       const responseData = response.data || {};
       
       // If registration returns a token, store it (some APIs do this)
@@ -132,14 +134,21 @@ export const authAPI = {
       toast.success('Registration successful! Please login.');
       return responseData;
     } catch (error) {
+      // Log full error details
+      console.error('Full registration error:', error);
+      console.error('Error response:', error.response);
+      console.error('Error data:', error.response?.data);
+      
       // Extract error message from various possible locations
       const errorData = error.response?.data || {};
       const errorMessage = errorData.detail || 
                           errorData.error || 
                           errorData.message ||
                           (errorData.non_field_errors && Array.isArray(errorData.non_field_errors) ? errorData.non_field_errors[0] : errorData.non_field_errors) ||
+                          JSON.stringify(errorData) ||
                           'Registration failed. Please try again.';
       
+      console.error('Parsed error message:', errorMessage);
       toast.error(errorMessage);
       throw error;
     }
