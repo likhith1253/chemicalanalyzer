@@ -36,7 +36,11 @@ class LoginWindow(QDialog):
     def init_ui(self):
         """Initialize the user interface"""
         self.setWindowTitle("ChemViz - Login")
-        self.setFixedSize(400, 500)
+        self.setMinimumSize(450, 600)
+        self.resize(450, 600)
+        
+        # Set window flags to ensure it shows on top
+        self.setWindowFlags(Qt.Window | Qt.WindowStaysOnTopHint)
         
         # Set window to center of screen
         self.center_on_screen()
@@ -96,20 +100,31 @@ class LoginWindow(QDialog):
         self.login_button = QPushButton("Login")
         self.login_button.setFont(QFont("Arial", 12, QFont.Bold))
         self.login_button.setObjectName("loginButton")
+        self.login_button.setMinimumHeight(45)
         self.login_button.clicked.connect(self.handle_login)
+        
+        # Register button
+        self.register_button = QPushButton("Create New Account")
+        self.register_button.setFont(QFont("Arial", 11))
+        self.register_button.setObjectName("registerButton")
+        self.register_button.setMinimumHeight(45)
+        self.register_button.clicked.connect(self.handle_register)
         
         # Status label
         self.status_label = QLabel("")
         self.status_label.setAlignment(Qt.AlignCenter)
         self.status_label.setFont(QFont("Arial", 9))
         self.status_label.setObjectName("statusLabel")
+        self.status_label.setWordWrap(True)
         
         # Add widgets to form layout
         form_layout.addWidget(username_label)
         form_layout.addWidget(self.username_input)
         form_layout.addWidget(password_label)
         form_layout.addWidget(self.password_input)
+        form_layout.addSpacing(10)
         form_layout.addWidget(self.login_button)
+        form_layout.addWidget(self.register_button)
         form_layout.addWidget(self.status_label)
         
         # Add all to main layout
@@ -178,6 +193,25 @@ class LoginWindow(QDialog):
                 color: #718096;
             }
             
+            QPushButton#registerButton {
+                background: white;
+                color: #667eea;
+                border: 2px solid #667eea;
+                border-radius: 8px;
+                padding: 12px;
+                font-size: 13px;
+            }
+            
+            QPushButton#registerButton:hover {
+                background: #f7fafc;
+                border-color: #5a67d8;
+                color: #5a67d8;
+            }
+            
+            QPushButton#registerButton:pressed {
+                background: #edf2f7;
+            }
+            
             QLabel#statusLabel {
                 color: #e53e3e;
                 padding: 5px;
@@ -225,6 +259,75 @@ class LoginWindow(QDialog):
         self.worker.success.connect(self.on_login_success)
         self.worker.error.connect(self.on_login_error)
         self.worker.start()
+    
+    @pyqtSlot()
+    def handle_register(self):
+        """Handle register button click"""
+        username = self.username_input.text().strip()
+        password = self.password_input.text()
+        
+        # Validation
+        if not username:
+            self.show_error("Please enter a username for registration")
+            return
+        
+        if not password:
+            self.show_error("Please enter a password for registration")
+            return
+        
+        if len(password) < 8:
+            self.show_error("Password must be at least 8 characters long")
+            return
+        
+        # Confirm registration
+        reply = QMessageBox.question(
+            self,
+            "Confirm Registration",
+            f"Create new account with username: {username}?",
+            QMessageBox.Yes | QMessageBox.No,
+            QMessageBox.No
+        )
+        
+        if reply != QMessageBox.Yes:
+            return
+        
+        # Disable buttons and show loading state
+        self.register_button.setEnabled(False)
+        self.login_button.setEnabled(False)
+        self.register_button.setText("Creating account...")
+        self.status_label.setText("")
+        
+        # Call registration API
+        try:
+            result = api_client.register(username, password, password_confirm=password)
+            
+            # Re-enable buttons
+            self.register_button.setEnabled(True)
+            self.login_button.setEnabled(True)
+            self.register_button.setText("Create New Account")
+            
+            # Show success message
+            QMessageBox.information(
+                self,
+                "Registration Successful",
+                f"Account created successfully!\n\nYou can now login with your credentials."
+            )
+            
+            # Clear password field, keep username
+            self.password_input.clear()
+            self.password_input.setFocus()
+            
+        except Exception as e:
+            # Re-enable buttons
+            self.register_button.setEnabled(True)
+            self.login_button.setEnabled(True)
+            self.register_button.setText("Create New Account")
+            
+            error_msg = str(e)
+            if "already exists" in error_msg.lower():
+                self.show_error("Username already taken. Please choose another.")
+            else:
+                self.show_error(f"Registration failed: {error_msg}")
     
     @pyqtSlot(dict)
     def on_login_success(self, result):
