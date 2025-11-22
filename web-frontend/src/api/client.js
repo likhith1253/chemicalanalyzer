@@ -3,6 +3,8 @@ import toast from 'react-hot-toast';
 
 import { API_BASE_URL } from '../config';
 
+console.log('🔌 API Base URL:', API_BASE_URL);
+
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
