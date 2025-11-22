@@ -1,204 +1,263 @@
-# Chemical Equipment Data Analyzer
+# ChemViz - Chemical Equipment Analyzer
 
-A full-stack application for analyzing chemical equipment data with AI-powered insights. Upload CSV files containing equipment information and get automated analysis with PDF reports.
+A full-stack analytical platform that transforms chemical equipment data into actionable insights using AI. Built to handle real-world industrial datasets with enterprise-grade architecture.
 
-## What It Does
+[![Live Demo](https://img.shields.io/badge/demo-live-green)](https://chemicalanalyzer.vercel.app) [![Backend API](https://img.shields.io/badge/API-deployed-blue)](https://chemicalanalyzer.onrender.com/api)
 
-- Upload CSV files with equipment data
-- View statistics and visualizations
-- Generate AI-powered insights
-- Download PDF reports
-- Cross-platform desktop app
+## Overview
 
-## Tech Stack
+ChemViz analyzes chemical equipment performance data through advanced data processing and AI-powered insights. The platform supports both web and desktop interfaces, offering flexibility for different operational environments.
 
-### Backend
-- Django REST Framework
-- Token authentication
-- Google Gemini API for AI insights
-- Pandas for data processing
+**Key Capabilities:**
+- Automated data validation and statistical analysis
+- AI-generated maintenance recommendations using Google Gemini
+- Real-time visualization of equipment metrics
+- Professional PDF report generation
+- Multi-platform support (Web + Desktop)
+
+## Architecture
+
+### Technology Stack
+
+**Backend (Django REST Framework)**
+- Token-based authentication with session management
+- Pandas for high-performance data processing
+- Google Gemini 2.5 API integration for AI insights
 - ReportLab for PDF generation
+- PostgreSQL-ready with SQLite fallback
 
-### Frontend
-- React with Vite
-- Chart.js for visualizations
-- Axios for API calls
-- CSS for styling
+**Frontend (React + Vite)**
+- Modern React with functional components and hooks
+- Chart.js for interactive data visualizations
+- Axios with centralized API client
+- Toast notifications for UX feedback
+- Responsive CSS with glassmorphism design
 
-### Desktop App
-- PyQt5
+**Desktop Client (PyQt5)**
+- Native Windows application
 - System tray integration
-- Native notifications
+- Cross-platform compatibility
+- Shares backend infrastructure with web app
+
+**DevOps**
+- CI/CD: Auto-deployment via GitHub
+- Frontend: Vercel (global CDN)
+- Backend: Render (containerized deployment)
+- Static Assets: WhiteNoise middleware
 
 ## Project Structure
 
 ```
 chemicalanalyzer/
-├── backend/           # Django backend
+├── backend/                    # Django REST API
 │   ├── chemviz_backend/
-│   │   ├── settings.py
-│   │   └── urls.py
-│   └── equipment/
-│       ├── models.py
-│       ├── views.py
-│       ├── services.py
-│       └── serializers.py
-├── web-frontend/      # React frontend
-│   ├── src/
-│   │   ├── components/
-│   │   ├── pages/
-│   │   └── api/
-│   └── package.json
-├── desktop-client/    # PyQt5 desktop app
-│   ├── main.py
+│   │   ├── settings.py        # Production-ready configuration
+│   │   └── urls.py            # API routing
+│   ├── equipment/
+│   │   ├── models.py          # Data models
+│   │   ├── views.py           # API endpoints
+│   │   ├── services.py        # Business logic & AI integration
+│   │   └── serializers.py     # Data validation
 │   └── requirements.txt
+│
+├── web-frontend/               # React SPA
+│   ├── src/
+│   │   ├── api/               # API client & authentication
+│   │   ├── components/        # Reusable UI components
+│   │   ├── pages/             # Route components
+│   │   └── config.js          # Environment configuration
+│   └── package.json
+│
+├── pyqt-app/                   # Desktop application
+│   ├── main.py
+│   ├── api_client.py
+│   └── widgets/
+│
 └── docs/
-    ├── sample_equipment_data.csv
-    └── ARCHITECTURE.md
+    └── sample_equipment_data.csv
 ```
 
-## Setup
+## Quick Start
 
-### Backend
+### Prerequisites
+- Python 3.11+
+- Node.js 18+
+- [Google Gemini API Key](https://aistudio.google.com/apikey)
 
-1. Create virtual environment:
+### Local Development
+
+**1. Clone and Setup Backend**
 ```bash
+cd backend
 python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+source venv/bin/activate  # Windows: venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
-2. Install dependencies:
+**2. Configure Environment**
 ```bash
-pip install -r backend/requirements.txt
+# Create backend/.env
+GOOGLE_GEMINI_API_KEY=your_api_key_here
+DEBUG=True
+SECRET_KEY=your-secret-key-here
 ```
 
-3. Set environment variable:
+**3. Initialize Database**
 ```bash
-export GOOGLE_GEMINI_API_KEY=your_api_key_here
-# On Windows: set GOOGLE_GEMINI_API_KEY=your_api_key_here
+python manage.py migrate
+python manage.py createsuperuser  # Optional: for admin access
 ```
 
-4. Run migrations:
+**4. Start Backend**
 ```bash
-python backend/manage.py migrate
+python manage.py runserver
+# API available at http://localhost:8000/api
 ```
 
-5. Start server:
+**5. Launch Frontend**
 ```bash
-python backend/manage.py runserver
-```
-
-Backend runs on http://localhost:8000
-
-### Frontend
-
-1. Install dependencies:
-```bash
+cd web-frontend
 npm install
-```
-
-2. Start development server:
-```bash
 npm run dev
+# App available at http://localhost:5173
 ```
 
-Frontend runs on http://localhost:5173
-
-### Desktop Client
-
-1. Install dependencies:
-```bash
-pip install -r desktop-client/requirements.txt
+**6. Run Desktop App (Optional)**
+```powershell
+.\run_desktop_app.ps1
 ```
 
-2. Run desktop app:
-```bash
-python desktop-client/main.py
+## Features
+
+### Data Processing Pipeline
+1. **Upload**: CSV validation with intelligent column mapping
+2. **Analysis**: Statistical aggregation (mean, distribution, outliers)
+3. **AI Insights**: GPT-powered recommendations via Gemini API
+4. **Export**: Professional PDF reports with charts
+
+### Supported CSV Format
+
+| Column | Type | Description |
+|--------|------|-------------|
+| Equipment Name | String | Unique identifier |
+| Type | String | Equipment category |
+| Flowrate | Float | L/min |
+| Pressure | Float | bar |
+| Temperature | Float | °C |
+
+*See [sample_equipment_data.csv](docs/sample_equipment_data.csv) for reference*
+
+## API Documentation
+
+### Authentication
+```http
+POST /api/auth/register/
+POST /api/auth/login/
+POST /api/auth/logout/
 ```
 
-## How to Use
+### Dataset Operations
+```http
+POST   /api/upload/              # Upload CSV
+GET    /api/datasets/            # List all datasets
+GET    /api/datasets/{id}/       # Get details
+GET    /api/datasets/{id}/analyze/    # Generate AI insights
+GET    /api/datasets/{id}/report/pdf/ # Download PDF
+```
 
-1. Start the backend server
-2. Start the frontend
-3. Open browser to http://localhost:5173
-4. Register/login to get auth token
-5. Upload CSV file with equipment data
-6. View analysis and insights
-7. Download PDF report
-
-## CSV Format
-
-Required columns:
-- Equipment Name
-- Type
-- Flowrate
-- Pressure
-- Temperature
-
-Sample data in docs/sample_equipment_data.csv
-
-## API Endpoints
-
-- POST /api/auth/register/ - Register user
-- POST /api/auth/login/ - Login and get token
-- POST /api/datasets/upload/ - Upload CSV
-- GET /api/datasets/ - List datasets
-- GET /api/datasets/{id}/ - Get dataset details
-- GET /api/datasets/{id}/pdf/ - Download PDF
-- GET /api/datasets/{id}/ai-insights/ - Get AI insights
+### Authentication Token
+Include in headers:
+```
+Authorization: Token <your-auth-token>
+```
 
 ## Deployment
 
-### Backend (Django)
+### Production Environment
 
-Use gunicorn with nginx:
-```bash
-gunicorn chemviz_backend.wsgi:application --bind 0.0.0.0:8000
-```
+**Backend (Render)**
+- Service Type: Web Service
+- Build Command: `pip install -r requirements.txt`
+- Start Command: `gunicorn chemviz_backend.wsgi`
+- Environment Variables:
+  - `GOOGLE_GEMINI_API_KEY`
+  - `SECRET_KEY`
+  - `DEBUG=False`
 
-### Frontend (React)
-
-Build for production:
-```bash
-npm run build
-```
-
-Serve static files with nginx or Apache.
+**Frontend (Vercel)**
+- Framework: Vite
+- Build Command: `npm run build`
+- Output Directory: `dist`
+- Root Directory: `web-frontend`
 
 ### Environment Variables
 
-- GOOGLE_GEMINI_API_KEY - Required for AI insights
-- DEBUG - Set to False in production
-- ALLOWED_HOSTS - Configure for production
+| Variable | Required | Description |
+|----------|----------|-------------|
+| `GOOGLE_GEMINI_API_KEY` | Yes | AI insights generation |
+| `SECRET_KEY` | Yes | Django security |
+| `DEBUG` | Prod: No | Development mode toggle |
+| `ALLOWED_HOSTS` | Prod: Yes | Comma-separated domains |
+| `DATABASE_URL` | Optional | PostgreSQL connection |
+
+## Technical Highlights
+
+- **Scalable Architecture**: Stateless API design with token authentication
+- **AI Integration**: Fallback mechanism for multiple Gemini model versions
+- **Error Handling**: Comprehensive validation with user-friendly error messages
+- **Performance**: Pandas vectorized operations for large datasets
+- **Security**: CORS configuration, CSRF protection, environment-based secrets
+- **Deployment**: Zero-downtime deployments via CI/CD integration
 
 ## Development
 
-### Adding New Features
-
-1. Backend: Add views in equipment/views.py
-2. Frontend: Create components in src/components/
-3. Update API client in src/api/client.js
+### Code Quality
+- Type hints in Python for better IDE support
+- ESLint configuration for JavaScript consistency
+- Modular component architecture
+- Centralized API client with interceptors
 
 ### Testing
-
-Run backend tests:
 ```bash
-python backend/manage.py test
+# Backend
+python manage.py test
+
+# Frontend
+npm run test
 ```
 
-### Database
-
-Default uses SQLite. For production:
-- PostgreSQL recommended
-- Update DATABASES setting in settings.py
+### Database Admin
+Access Django admin panel:
+```
+http://localhost:8000/admin/
+# Production: https://chemicalanalyzer.onrender.com/admin/
+```
 
 ## Troubleshooting
 
-- AI insights not working: Check GOOGLE_GEMINI_API_KEY
-- Upload errors: Verify CSV format
-- PDF generation issues: Check ReportLab installation
-- Frontend not connecting: Verify CORS settings
+| Issue | Solution |
+|-------|----------|
+| AI insights fail | Verify `GOOGLE_GEMINI_API_KEY` in environment |
+| Upload errors | Check CSV column names match requirements |
+| CORS errors | Ensure frontend URL in `CORS_ALLOWED_ORIGINS` |
+| PDF generation fails | Install `python-dev` and `libcairo2-dev` |
+| Render service sleeps | Free tier limitation - first request wakes service (~30s) |
+
+## Contributing
+
+This project demonstrates full-stack development skills including:
+- RESTful API design
+- Modern React patterns
+- AI/ML integration
+- Cloud deployment
+- Database modeling
+- Authentication & authorization
 
 ## License
 
-MIT License
+MIT License - feel free to use this project as a portfolio reference.
+
+---
+
+**Live Demo**: [chemicalanalyzer.vercel.app](https://chemicalanalyzer.vercel.app)  
+**API Endpoint**: [chemicalanalyzer.onrender.com/api](https://chemicalanalyzer.onrender.com/api)
