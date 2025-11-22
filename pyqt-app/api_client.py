@@ -96,11 +96,30 @@ class APIClient:
         except Exception as e:
             raise Exception(f"Login failed: {str(e)}")
     
+    def register(self, username: str, password: str, email: str = "", password_confirm: str = None) -> Dict[str, Any]:
+        """Register a new user"""
+        url = f"{self.base_url}/auth/register/"
+        
+        if password_confirm is None:
+            password_confirm = password
+        
+        data = {
+            "username": username,
+            "password": password,
+            "password_confirm": password_confirm,
+            "email": email
+        }
+        
+        try:
+            response = self.session.post(url, json=data, headers=self._get_headers(include_auth=False))
+            result = self._handle_response(response)
+            return result
+        except Exception as e:
+            raise Exception(f"Registration failed: {str(e)}")
+    
     def logout(self):
         """Logout and clear token"""
         self.token = None
-        # Note: Django REST Framework doesn't have a logout endpoint for token auth
-        # Token will be invalidated on the server side if needed
     
     def upload_csv(self, file_path: str) -> Dict[str, Any]:
         """Upload CSV file to the API"""
