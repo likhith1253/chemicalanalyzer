@@ -19,7 +19,7 @@ load_dotenv(os.path.join(BASE_DIR, '.env'))
 # -------------------------------
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-default-key-change-in-production')
-DEBUG = os.getenv('DEBUG', 'True').lower() == 'true'
+DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
 # Allowed hosts
 ALLOWED_HOSTS = [
@@ -161,23 +161,30 @@ REST_FRAMEWORK = {
 # CORS & CSRF
 # -------------------------------
 
-if DEBUG:
-    CORS_ALLOW_ALL_ORIGINS = True
-else:
-    CORS_ALLOWED_ORIGINS = [
-        origin.strip()
-        for origin in os.getenv(
-            'CORS_ALLOWED_ORIGINS',
-            'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173,https://chemicalanalyzerfinal-posar1426-plnlikhith-gmailcoms-projects.vercel.app'
-        ).split(',')
-    ]
+# -------------------------------
+# CORS & CSRF
+# -------------------------------
+
+CORS_ALLOWED_ORIGINS = [
+    "https://chemicalanalyzer-final.vercel.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://chemicalanalyzer-final.vercel.app",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+]
 
 CORS_ALLOW_CREDENTIALS = True
 
-CSRF_TRUSTED_ORIGINS = [
-    origin.strip()
-    for origin in os.getenv(
-        'CSRF_TRUSTED_ORIGINS',
-        'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173,https://chemicalanalyzerfinal-posar1426-plnlikhith-gmailcoms-projects.vercel.app'
-    ).split(',')
+# -------------------------------
+# Security
+# -------------------------------
+ALLOWED_HOSTS = [
+    "chemicalanalyzer.onrender.com",
+    "localhost",
+    "127.0.0.1",
+    ".onrender.com",  # Allow all render subdomains just in case
 ]

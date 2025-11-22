@@ -42,10 +42,14 @@ def api_root(request):
         }
     })
 
+def health_check(request):
+    return JsonResponse({"status": "ok"})
+
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/', include('equipment.urls')),
     path('api-auth/', include('rest_framework.urls')),
+    path('api/health/', health_check, name='health_check'),
     path('', api_root, name='api-root'),
 ]
 
