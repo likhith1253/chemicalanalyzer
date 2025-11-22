@@ -161,13 +161,16 @@ REST_FRAMEWORK = {
 # CORS & CSRF
 # -------------------------------
 
-CORS_ALLOWED_ORIGINS = [
-    origin.strip()
-    for origin in os.getenv(
-        'CORS_ALLOWED_ORIGINS',
-        'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173'
-    ).split(',')
-]
+if DEBUG:
+    CORS_ALLOW_ALL_ORIGINS = True
+else:
+    CORS_ALLOWED_ORIGINS = [
+        origin.strip()
+        for origin in os.getenv(
+            'CORS_ALLOWED_ORIGINS',
+            'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173,https://chemicalanalyzerfinal-posar1426-plnlikhith-gmailcoms-projects.vercel.app'
+        ).split(',')
+    ]
 
 CORS_ALLOW_CREDENTIALS = True
 
@@ -175,6 +178,6 @@ CSRF_TRUSTED_ORIGINS = [
     origin.strip()
     for origin in os.getenv(
         'CSRF_TRUSTED_ORIGINS',
-        'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173'
+        'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173,https://chemicalanalyzerfinal-posar1426-plnlikhith-gmailcoms-projects.vercel.app'
     ).split(',')
 ]
