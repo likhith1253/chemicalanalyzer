@@ -170,6 +170,7 @@ CORS_ALLOW_ALL_ORIGINS = True
 
 # Keep these for reference, but ALL are allowed now
 CORS_ALLOWED_ORIGINS = [
+    "https://chemicalanalyzer.vercel.app",
     "https://chemicalanalyzer-final.vercel.app",
     "https://chemicalanalyzerfinal-2673qhui2-plnlikhith-gmailcoms-projects.vercel.app",
     "http://localhost:5173",
@@ -177,6 +178,7 @@ CORS_ALLOWED_ORIGINS = [
 ]
 
 CSRF_TRUSTED_ORIGINS = [
+    "https://chemicalanalyzer.vercel.app",
     "https://chemicalanalyzer-final.vercel.app",
     "https://chemicalanalyzerfinal-2673qhui2-plnlikhith-gmailcoms-projects.vercel.app",
     "http://localhost:5173",
