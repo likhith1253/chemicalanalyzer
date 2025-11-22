@@ -23,6 +23,26 @@ from .serializers import (
 )
 from .services import analyze_equipment_csv_from_uploaded_file, CSVParsingError, generate_ai_insights, AIGenerationError
 from .pdf_utils import generate_pdf_response
+from rest_framework.response import Response
+from rest_framework.decorators import api_view
+
+@api_view(["GET"])
+def equipment_api_root(request):
+    return Response({
+        "message": "Equipment API Root",
+        "endpoints": {
+            "register": "/api/auth/register/",
+            "login": "/api/auth/login/",
+            "logout": "/api/auth/logout/",
+            "profile": "/api/auth/profile/",
+            "upload": "/api/upload/",
+            "datasets": "/api/datasets/",
+            "dataset_detail": "/api/datasets/<id>/",
+            "dataset_pdf_report": "/api/datasets/<id>/report/pdf/",
+            "dataset_ai": "/api/datasets/<id>/analyze/"
+        }
+    })
+
 
 
 # Auth stuff

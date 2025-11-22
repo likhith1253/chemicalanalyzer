@@ -8,6 +8,7 @@ app_name = 'equipment'
 
 urlpatterns = [
     # Authentication endpoints
+    path('', views.equipment_api_root, name='equipment-api-root'),
     path('auth/register/', views.RegisterView.as_view(), name='register'),
     path('auth/login/', views.LoginView.as_view(), name='login'),
     path('auth/logout/', views.LogoutView.as_view(), name='logout'),
