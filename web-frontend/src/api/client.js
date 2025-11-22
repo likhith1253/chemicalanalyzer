@@ -2,16 +2,14 @@ import axios from 'axios';
 import toast from 'react-hot-toast';
 
 // Create axios instance with base URL from environment
-// Support both VITE_API_URL and VITE_API_BASE_URL for compatibility
-const API_BASE_URL = import.meta.env.VITE_API_URL || 
-                     import.meta.env.VITE_API_BASE_URL || 
-                     'http://localhost:8000/api';
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL;
 
 export const apiClient = axios.create({
   baseURL: API_BASE_URL,
   headers: {
     'Content-Type': 'application/json',
   },
+  withCredentials: true,
   timeout: 30000, // 30 seconds timeout
 });
 
