@@ -1,1 +1,0 @@
-web: gunicorn chemviz_backend.wsgi:application --log-file -
