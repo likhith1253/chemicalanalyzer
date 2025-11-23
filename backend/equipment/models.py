@@ -32,23 +32,23 @@ class Dataset(models.Model):
     
     def save(self, *args, **kwargs):
         """
-        Override save to ensure only the last 5 datasets are kept.
+        Override save to ensure only the last 5 datasets per user are kept.
         """
         super().save(*args, **kwargs)
         self.prune_old_datasets()
     
     def prune_old_datasets(self):
         """
-        Keep only the last 5 datasets, deleting older ones.
+        Keep only the last 5 datasets per user, deleting older ones.
         This is called after saving a new dataset.
         """
-        # Get all datasets ordered by upload date (newest first)
-        all_datasets = Dataset.objects.order_by('-uploaded_at')
+        # Get all datasets for THIS USER ordered by upload date (newest first)
+        user_datasets = Dataset.objects.filter(uploaded_by=self.uploaded_by).order_by('-uploaded_at')
         
-        # If we have more than 5 datasets, delete the older ones
-        if all_datasets.count() > 5:
-            # Get datasets to delete (older than the 5th most recent)
-            datasets_to_delete = all_datasets[5:]
+        # If this user has more than 5 datasets, delete the older ones
+        if user_datasets.count() > 5:
+            # Get datasets to delete (older than the 5th most recent for this user)
+            datasets_to_delete = user_datasets[5:]
             for old_dataset in datasets_to_delete:
                 # Delete the associated file if it exists
                 if old_dataset.csv_file:

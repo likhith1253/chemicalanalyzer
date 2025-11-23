@@ -241,8 +241,8 @@ class DatasetListView(ListAPIView):
     authentication_classes = [TokenAuthentication]
     
     def get_queryset(self):
-        # Get last 5 datasets
-        return Dataset.objects.order_by('-uploaded_at')[:5]
+        # Get last 5 datasets for the authenticated user only
+        return Dataset.objects.filter(uploaded_by=self.request.user).order_by('-uploaded_at')[:5]
     
     def list(self, request, *args, **kwargs):
         # Return array
@@ -262,8 +262,11 @@ class DatasetDetailView(RetrieveAPIView):
     serializer_class = DatasetDetailSerializer
     permission_classes = [permissions.IsAuthenticated]
     authentication_classes = [TokenAuthentication]
-    queryset = Dataset.objects.all()
     lookup_field = 'id'
+    
+    def get_queryset(self):
+        # Only allow access to the user's own datasets
+        return Dataset.objects.filter(uploaded_by=self.request.user)
     
     def get_object(self):
         # Get dataset or 404
@@ -291,7 +294,8 @@ class DatasetPDFReportView(APIView):
     def get(self, request, pk):
         # Generate PDF
         try:
-            dataset = get_object_or_404(Dataset, id=pk)
+            # Ensure user can only access their own datasets
+            dataset = get_object_or_404(Dataset, id=pk, uploaded_by=request.user)
             return generate_pdf_response(dataset)
             
         except Exception as e:
@@ -313,7 +317,8 @@ class DatasetAnalyzeView(APIView):
     def get(self, request, pk):
         # Get AI analysis
         try:
-            dataset = get_object_or_404(Dataset, id=pk)
+            # Ensure user can only access their own datasets
+            dataset = get_object_or_404(Dataset, id=pk, uploaded_by=request.user)
             
             # Prepare data for AI
             summary = {
