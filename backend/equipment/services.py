@@ -5,7 +5,9 @@ import os
 import google.generativeai as genai
 from django.core.files.uploadedfile import UploadedFile
 import json
+import logging
 from typing import Dict, List, Union, Optional
+logger = logging.getLogger(__name__)
 
 # Lazy load Gemini to avoid key check on import
 try:
@@ -131,7 +133,7 @@ def analyze_equipment_csv_from_uploaded_file(uploaded_file: UploadedFile) -> Dic
         # Prepare preview rows (limit to first 100)
         preview_df = df_clean.head(100).copy()
         # Replace NaN with None for JSON serialization
-        preview_df = preview_df.where(pd.notnull(preview_df), None)
+        preview_df = preview_df.astype(object).where(pd.notnull(preview_df), None)
         preview_rows = preview_df.to_dict(orient='records')
         
         # Helper to safely round values
@@ -164,26 +166,10 @@ def generate_ai_insights(dataset_summary: Dict) -> str:
     """
     try:
         from google.api_core.exceptions import NotFound, InvalidArgument
-        from dotenv import load_dotenv
         
         # 1. Validate API Key
         api_key = os.getenv('GOOGLE_GEMINI_API_KEY')
         
-        # Fallback: Try loading .env explicitly if key is missing
-        if not api_key:
-            print("DEBUG: API Key not found in env, attempting to load .env file explicitly...")
-            try:
-                # Assuming standard Django structure: backend/chemviz_backend/settings.py -> backend/
-                # This file is in backend/equipment/services.py -> backend/
-                base_dir = Path(__file__).resolve().parent.parent
-                env_path = base_dir / '.env'
-                if env_path.exists():
-                    print(f"DEBUG: Loading .env from {env_path}")
-                    load_dotenv(env_path)
-                    api_key = os.getenv('GOOGLE_GEMINI_API_KEY')
-            except Exception as e:
-                print(f"DEBUG: Failed to load .env explicitly: {e}")
-
         if not api_key:
             # Raise error so frontend shows the error UI instead of typing this as "insights"
             raise AIGenerationError("API Key missing. Please configure GOOGLE_GEMINI_API_KEY in your environment variables.")
@@ -231,14 +217,16 @@ def generate_ai_insights(dataset_summary: Dict) -> str:
                 raise AIGenerationError("Model returned empty response")
                 
             return response.text.strip()
+        except AIGenerationError:
+            raise
         except Exception as e:
-            error_msg = str(e)
-            raise AIGenerationError(f"Failed to generate insights: {error_msg}")
+            logger.warning("Gemini request failed: %s", type(e).__name__)
+            raise AIGenerationError("Failed to generate insights.") from e
             
-    except ImportError:
-        return "Error: google-generativeai package is not installed."
+    except AIGenerationError:
+        raise
+    except ImportError as e:
+        raise AIGenerationError("google-generativeai package is not installed.") from e
     except Exception as e:
-        # Log the full error for debugging (in a real app, use a logger)
-        print(f"AI Generation Error: {str(e)}")
-        return f"Unable to generate insights at this time. Error: {str(e)}"
-
+        logger.exception("Unexpected error while generating AI insights")
+        raise AIGenerationError("Unexpected error while generating AI insights.") from e

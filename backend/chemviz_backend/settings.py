@@ -18,17 +18,37 @@ load_dotenv(os.path.join(BASE_DIR, '.env'))
 # Security / Environment
 # -------------------------------
 
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-default-key-change-in-production')
-DEBUG = os.getenv('DEBUG', 'False') == 'True'
+import sys
+from django.core.exceptions import ImproperlyConfigured
 
-# Allowed hosts
-ALLOWED_HOSTS = [
- 
-    "chemicalanalyzer.onrender.com",
-    "localhost",
-    "127.0.0.1",
-]
 
+def _env_list(name, default=""):
+    return [item.strip() for item in os.getenv(name, default).split(",") if item.strip()]
+
+
+DEBUG = os.getenv('DEBUG', 'False').lower() in ('1', 'true', 'yes')
+TESTING = 'pytest' in sys.modules or 'test' in sys.argv
+
+SECRET_KEY = os.getenv('SECRET_KEY')
+if not SECRET_KEY:
+    if DEBUG or TESTING:
+        # Throwaway key for local development and the test-suite only.
+        SECRET_KEY = 'insecure-local-development-key-do-not-use-in-production'
+    else:
+        raise ImproperlyConfigured(
+            "SECRET_KEY environment variable is required when DEBUG is off."
+        )
+
+# Comma-separated list in the ALLOWED_HOSTS env var; defaults cover local use
+# and Render (the platform sets RENDER_EXTERNAL_HOSTNAME).
+ALLOWED_HOSTS = _env_list('ALLOWED_HOSTS', 'localhost,127.0.0.1,testserver')
+if os.getenv('RENDER_EXTERNAL_HOSTNAME'):
+    ALLOWED_HOSTS.append(os.environ['RENDER_EXTERNAL_HOSTNAME'])
+
+# Uploads: reject request bodies larger than this before they are buffered.
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB CSV limit enforced by the upload view
+DATA_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = 2 * 1024 * 1024
 
 
 # -------------------------------
@@ -130,8 +150,11 @@ USE_TZ = True
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
-# Whitenoise optimized storage
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# Whitenoise optimized storage (Django 4.2+ STORAGES setting)
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {'BACKEND': 'whitenoise.storage.CompressedManifestStaticFilesStorage'},
+}
 
 # Media (uploads)
 MEDIA_URL = '/media/'
@@ -155,44 +178,49 @@ REST_FRAMEWORK = {
     "DEFAULT_PERMISSION_CLASSES": [
         "rest_framework.permissions.IsAuthenticated",
     ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.AnonRateThrottle",
+        "rest_framework.throttling.UserRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "anon": "60/min",
+        "user": "240/min",
+        "auth": "10/min",      # login / register (per client IP)
+        "upload": "20/hour",   # CSV uploads (per user)
+        "ai": "20/hour",       # Gemini-backed analysis (per user)
+    },
 }
 
 # -------------------------------
 # CORS & CSRF
 # -------------------------------
 
-# -------------------------------
-# CORS & CSRF
-# -------------------------------
+# The API authenticates with an Authorization header (DRF token), not cookies,
+# so cross-origin credentials are not needed and CORS is restricted to an allowlist.
+CORS_ALLOWED_ORIGINS = _env_list(
+    'CORS_ALLOWED_ORIGINS',
+    'https://chemicalanalyzer.vercel.app,http://localhost:5173,http://127.0.0.1:5173',
+)
+CORS_ALLOW_CREDENTIALS = False
 
-# Allow ALL origins to fix "Network Error" for any client IP
-CORS_ALLOW_ALL_ORIGINS = True
-
-# Keep these for reference, but ALL are allowed now
-CORS_ALLOWED_ORIGINS = [
-    "https://chemicalanalyzer.vercel.app",
-    "https://chemicalanalyzer-final.vercel.app",
-    "https://chemicalanalyzerfinal-2673qhui2-plnlikhith-gmailcoms-projects.vercel.app",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
-
-CSRF_TRUSTED_ORIGINS = [
-    "https://chemicalanalyzer.vercel.app",
-    "https://chemicalanalyzer-final.vercel.app",
-    "https://chemicalanalyzerfinal-2673qhui2-plnlikhith-gmailcoms-projects.vercel.app",
-    "http://localhost:5173",
-    "http://127.0.0.1:5173",
-]
-
-CORS_ALLOW_CREDENTIALS = True
+CSRF_TRUSTED_ORIGINS = _env_list(
+    'CSRF_TRUSTED_ORIGINS',
+    'https://chemicalanalyzer.vercel.app,https://chemicalanalyzer.onrender.com',
+)
 
 # -------------------------------
-# Security
+# HTTPS / cookie hardening (production only)
 # -------------------------------
-ALLOWED_HOSTS = [
-    "chemicalanalyzer.onrender.com",
-    "localhost",
-    "127.0.0.1",
-    ".onrender.com",  # Allow all render subdomains just in case
-]
+
+SECURE_CONTENT_TYPE_NOSNIFF = True
+X_FRAME_OPTIONS = 'DENY'
+if not DEBUG and not TESTING:
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = True
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+
+# Path of the Django admin site (override to move it off the default URL).
+ADMIN_URL = os.getenv('ADMIN_URL', 'admin/')

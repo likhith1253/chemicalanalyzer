@@ -11,7 +11,7 @@ if not api_key:
 
 genai.configure(api_key=api_key)
 
-print(f"Testing API key: {api_key[:15]}...")
+print(f"Testing API key: (key from environment)")
 print("\nListing available models:")
 
 try:

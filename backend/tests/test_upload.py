@@ -1,182 +1,86 @@
 import pytest
-import tempfile
 from django.core.files.uploadedfile import SimpleUploadedFile
-from rest_framework.test import APIClient
+
+from equipment.models import Dataset, Equipment
+
+
+def csv_upload(content, name='data.csv'):
+    if isinstance(content, str):
+        content = content.encode()
+    return SimpleUploadedFile(name, content, content_type='text/csv')
 
 
 class TestUploadAPI:
-    """Test CSV upload API endpoint"""
-    
-    def test_csv_upload_success(self, auth_client, sample_csv_file):
-        """Test successful CSV upload"""
-        # Create upload file
-        sample_csv_file.seek(0)
-        upload_file = SimpleUploadedFile(
-            "test.csv",
-            sample_csv_file.read().encode(),
-            content_type="text/csv"
-        )
-        
-        response = auth_client.post('/api/upload/', {'file': upload_file})
-        
-        assert response.status_code == 200
-        assert 'id' in response.data
-        assert 'name' in response.data
-        assert 'total_count' in response.data
-        assert response.data['total_count'] == 5
-        assert 'type_distribution' in response.data
-        assert response.data['type_distribution']['Pump'] == 2
-        assert response.data['type_distribution']['Valve'] == 1
-        assert response.data['type_distribution']['Reactor'] == 1
-        assert response.data['type_distribution']['Column'] == 1
-    
-    def test_csv_upload_unauthenticated(self, api_client, sample_csv_file):
-        """Test CSV upload without authentication"""
-        sample_csv_file.seek(0)
-        upload_file = SimpleUploadedFile(
-            "test.csv",
-            sample_csv_file.read().encode(),
-            content_type="text/csv"
-        )
-        
-        response = api_client.post('/api/upload/', {'file': upload_file})
-        
-        assert response.status_code == 401
-    
-    def test_csv_upload_missing_file(self, auth_client):
-        """Test CSV upload with missing file"""
-        response = auth_client.post('/api/upload/', {})
-        
-        assert response.status_code == 400
-        assert 'file' in response.data
-    
-    def test_csv_upload_invalid_file_type(self, auth_client):
-        """Test CSV upload with invalid file type"""
-        upload_file = SimpleUploadedFile(
-            "test.txt",
-            b"not a csv file",
-            content_type="text/plain"
-        )
-        
-        response = auth_client.post('/api/upload/', {'file': upload_file})
-        
-        assert response.status_code == 400
-    
-    def test_csv_upload_empty_file(self, auth_client):
-        """Test CSV upload with empty file"""
-        upload_file = SimpleUploadedFile(
-            "empty.csv",
-            b"",
-            content_type="text/csv"
-        )
-        
-        response = auth_client.post('/api/upload/', {'file': upload_file})
-        
-        assert response.status_code == 400
-    
-    def test_csv_upload_invalid_format(self, auth_client):
-        """Test CSV upload with invalid CSV format"""
-        invalid_csv = "invalid,csv,format\nmissing,columns"
-        upload_file = SimpleUploadedFile(
-            "invalid.csv",
-            invalid_csv.encode(),
-            content_type="text/csv"
-        )
-        
-        response = auth_client.post('/api/upload/', {'file': upload_file})
-        
-        assert response.status_code == 400
-    
-    def test_csv_upload_missing_columns(self, auth_client):
-        """Test CSV upload with missing required columns"""
-        invalid_csv = "Name,Type\nPump1,Pump"
-        upload_file = SimpleUploadedFile(
-            "missing_columns.csv",
-            invalid_csv.encode(),
-            content_type="text/csv"
-        )
-        
-        response = auth_client.post('/api/upload/', {'file': upload_file})
-        
-        assert response.status_code == 400
-    
-    def test_csv_upload_invalid_data_types(self, auth_client):
-        """Test CSV upload with invalid data types"""
-        invalid_csv = """Equipment Name,Type,Flowrate,Pressure,Temperature
-Pump-001,Pump,not_a_number,2.5,85.2
-Valve-A12,Valve,75.3,not_a_number,45.7"""
-        
-        upload_file = SimpleUploadedFile(
-            "invalid_types.csv",
-            invalid_csv.encode(),
-            content_type="text/csv"
-        )
-        
-        response = auth_client.post('/api/upload/', {'file': upload_file})
-        
-        assert response.status_code == 400
-    
-    def test_csv_upload_large_file(self, auth_client):
-        """Test CSV upload with large file"""
-        # Create a large CSV file (simulated)
-        large_csv = "Equipment Name,Type,Flowrate,Pressure,Temperature\n"
-        for i in range(10000):
-            large_csv += f"Pump-{i:04d},Pump,150.5,2.5,85.2\n"
-        
-        upload_file = SimpleUploadedFile(
-            "large.csv",
-            large_csv.encode(),
-            content_type="text/csv"
-        )
-        
-        response = auth_client.post('/api/upload/', {'file': upload_file})
-        
-        assert response.status_code == 200
-        assert response.data['total_count'] == 10000
-    
-    def test_csv_upload_special_characters(self, auth_client):
-        """Test CSV upload with special characters in equipment names"""
-        special_csv = """Equipment Name,Type,Flowrate,Pressure,Temperature
-Pump-001,Special-Pump,150.5,2.5,85.2
-Valve-A12,Valve/Test,75.3,1.8,45.7
-Reactor-R1,Reactor & Heater,200.8,3.2,120.5"""
-        
-        upload_file = SimpleUploadedFile(
-            "special_chars.csv",
-            special_csv.encode(),
-            content_type="text/csv"
-        )
-        
-        response = auth_client.post('/api/upload/', {'file': upload_file})
-        
-        assert response.status_code == 200
-        assert response.data['total_count'] == 3
-    
-    def test_csv_upload_duplicate_dataset_name(self, auth_client, user, sample_csv_file):
-        """Test CSV upload with duplicate dataset name"""
-        # Create existing dataset with same name
-        from equipment.models import EquipmentDataset
-        EquipmentDataset.objects.create(
-            name='test.csv',
-            uploaded_by=user,
-            csv_content='dummy',
-            total_count=1,
-            avg_flowrate=100.0,
-            avg_pressure=2.0,
-            avg_temperature=80.0,
-            type_distribution={}
-        )
-        
-        sample_csv_file.seek(0)
-        upload_file = SimpleUploadedFile(
-            "test.csv",
-            sample_csv_file.read().encode(),
-            content_type="text/csv"
-        )
-        
-        response = auth_client.post('/api/upload/', {'file': upload_file})
-        
-        assert response.status_code == 200
-        # Should create a unique name by adding timestamp
-        assert response.data['name'] != 'test.csv'
-        assert 'test.csv' in response.data['name']
+    def test_upload_success(self, auth_client, user, sample_csv_content):
+        r = auth_client.post('/api/upload/', {'file': csv_upload(sample_csv_content), 'name': 'My data'}, format='multipart')
+        assert r.status_code == 201, r.data
+        assert r.data['name'] == 'My data'
+        assert r.data['total_count'] == 5
+        assert r.data['type_distribution'] == {'Pump': 2, 'Valve': 1, 'Reactor': 1, 'Column': 1}
+        dataset = Dataset.objects.get(pk=r.data['id'])
+        assert dataset.uploaded_by == user
+        assert Equipment.objects.filter(dataset=dataset).count() == 5
+
+    def test_upload_requires_auth(self, api_client, sample_csv_content, db):
+        r = api_client.post('/api/upload/', {'file': csv_upload(sample_csv_content)}, format='multipart')
+        assert r.status_code == 401
+        assert Dataset.objects.count() == 0
+
+    def test_upload_missing_file(self, auth_client):
+        assert auth_client.post('/api/upload/', {}, format='multipart').status_code == 400
+
+    @pytest.mark.parametrize('filename', ['data.txt', 'data.csv.exe', 'data.xlsx', 'shell.php'])
+    def test_upload_rejects_non_csv_extension(self, auth_client, sample_csv_content, filename):
+        r = auth_client.post('/api/upload/', {'file': csv_upload(sample_csv_content, filename)}, format='multipart')
+        assert r.status_code == 400
+
+    def test_upload_rejects_binary_disguised_as_csv(self, auth_client):
+        payload = b'PK' + bytes([3, 4, 0, 0]) + bytes(100)
+        r = auth_client.post('/api/upload/', {'file': csv_upload(payload, 'evil.csv')}, format='multipart')
+        assert r.status_code == 400
+        assert Dataset.objects.count() == 0
+
+    def test_upload_rejects_oversized_file(self, auth_client, settings):
+        settings.MAX_UPLOAD_BYTES = 1024
+        big = 'Equipment Name,Type,Flowrate,Pressure,Temperature\n' + 'Pump,Pump,1,1,1\n' * 200
+        r = auth_client.post('/api/upload/', {'file': csv_upload(big)}, format='multipart')
+        assert r.status_code == 413
+        assert Dataset.objects.count() == 0
+
+    def test_upload_missing_columns(self, auth_client):
+        r = auth_client.post('/api/upload/', {'file': csv_upload('Name,Type\nPump,Pump\n')}, format='multipart')
+        assert r.status_code == 400
+        assert 'Missing required columns' in r.data['detail']
+
+    def test_upload_empty_file(self, auth_client):
+        assert auth_client.post('/api/upload/', {'file': csv_upload('')}, format='multipart').status_code == 400
+
+    def test_upload_non_numeric_values_do_not_crash(self, auth_client):
+        content = 'Equipment Name,Type,Flowrate,Pressure,Temperature\nPump-1,Pump,abc,2,3\nPump-2,Pump,5,6,7\n'
+        r = auth_client.post('/api/upload/', {'file': csv_upload(content)}, format='multipart')
+        assert r.status_code == 201, r.data
+
+    def test_upload_long_name_is_truncated(self, auth_client, sample_csv_content):
+        r = auth_client.post('/api/upload/', {'file': csv_upload(sample_csv_content), 'name': 'n' * 1000}, format='multipart')
+        assert r.status_code == 201
+        assert len(r.data['name']) == 255
+
+    def test_path_traversal_filename_stays_inside_media_root(self, auth_client, sample_csv_content, settings):
+        r = auth_client.post('/api/upload/', {'file': csv_upload(sample_csv_content, '../../evil.csv')}, format='multipart')
+        assert r.status_code == 201, r.data
+        stored = Dataset.objects.get(pk=r.data['id']).csv_file.path
+        root = str(settings.MEDIA_ROOT)
+        assert stored.startswith(root)
+        assert '..' not in stored[len(root):]
+
+    def test_uploads_are_not_served_without_debug(self, api_client, auth_client, sample_csv_content):
+        r = auth_client.post('/api/upload/', {'file': csv_upload(sample_csv_content)}, format='multipart')
+        url = Dataset.objects.get(pk=r.data['id']).csv_file.url
+        assert api_client.get(url).status_code == 404
+
+    def test_upload_is_rate_limited(self, auth_client, sample_csv_content):
+        codes = [
+            auth_client.post('/api/upload/', {'file': csv_upload(sample_csv_content)}, format='multipart').status_code
+            for _ in range(22)
+        ]
+        assert 429 in codes

@@ -23,7 +23,7 @@ class Dataset(models.Model):
     preview_rows = models.JSONField(default=list, blank=True)  # Store first 100 rows
     
     class Meta:
-        ordering = ['-uploaded_at']
+        ordering = ['-uploaded_at', '-id']
         verbose_name = 'Dataset'
         verbose_name_plural = 'Datasets'
     
@@ -43,7 +43,7 @@ class Dataset(models.Model):
         This is called after saving a new dataset.
         """
         # Get all datasets for THIS USER ordered by upload date (newest first)
-        user_datasets = Dataset.objects.filter(uploaded_by=self.uploaded_by).order_by('-uploaded_at')
+        user_datasets = Dataset.objects.filter(uploaded_by=self.uploaded_by).order_by('-uploaded_at', '-id')
         
         # If this user has more than 5 datasets, delete the older ones
         if user_datasets.count() > 5:

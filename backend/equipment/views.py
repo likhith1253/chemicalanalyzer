@@ -1,3 +1,4 @@
+from django.http import Http404
 from rest_framework import status, permissions
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -12,6 +13,9 @@ from django.views.decorators.csrf import csrf_exempt
 from django.utils.decorators import method_decorator
 import pandas as pd
 from django.conf import settings
+from django.db import transaction
+from rest_framework.throttling import ScopedRateThrottle, UserRateThrottle
+import logging
 
 from .models import Dataset, Equipment
 from .serializers import (
@@ -25,6 +29,18 @@ from .services import analyze_equipment_csv_from_uploaded_file, CSVParsingError,
 from .pdf_utils import generate_pdf_response
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
+
+logger = logging.getLogger(__name__)
+
+MAX_DATASET_NAME_LENGTH = 255
+
+
+class UploadRateThrottle(UserRateThrottle):
+    scope = 'upload'
+
+
+class AIRateThrottle(UserRateThrottle):
+    scope = 'ai'
 
 @api_view(["GET"])
 def equipment_api_root(request):
@@ -54,21 +70,17 @@ class RegisterView(APIView):
     """
     permission_classes = [permissions.AllowAny]
     authentication_classes = []  # Public endpoint
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth'
     
     def post(self, request):
-        try:
-            serializer = RegisterSerializer(data=request.data)
+        serializer = RegisterSerializer(data=request.data)
 
-            if serializer.is_valid():
-                result = serializer.save()
-                return Response(result, status=status.HTTP_201_CREATED)
+        if serializer.is_valid():
+            result = serializer.save()
+            return Response(result, status=status.HTTP_201_CREATED)
 
-            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
-        except Exception as e:
-            return Response({
-                'error': 'Registration failed',
-                'detail': str(e)
-            }, status=status.HTTP_400_BAD_REQUEST)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 @method_decorator(csrf_exempt, name='dispatch')
@@ -78,21 +90,20 @@ class LoginView(APIView):
     """
     permission_classes = [permissions.AllowAny]
     authentication_classes = []  # Public endpoint
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth'
     
     def post(self, request):
-        try:
-            serializer = LoginSerializer(data=request.data)
-            
-            if serializer.is_valid():
-                result = serializer.save()
-                return Response(result, status=status.HTTP_200_OK)
-            
+        serializer = LoginSerializer(data=request.data)
+
+        if serializer.is_valid():
+            result = serializer.save()
+            return Response(result, status=status.HTTP_200_OK)
+
+        # Missing/blank fields are a client error; bad credentials are 401.
+        if 'non_field_errors' in serializer.errors:
             return Response(serializer.errors, status=status.HTTP_401_UNAUTHORIZED)
-        except Exception as e:
-            return Response({
-                'error': 'Login failed',
-                'detail': str(e)
-            }, status=status.HTTP_401_UNAUTHORIZED)
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
 class LogoutView(APIView):
@@ -132,6 +143,7 @@ class UploadDatasetView(APIView):
     """
     permission_classes = [permissions.IsAuthenticated]
     authentication_classes = [TokenAuthentication]
+    throttle_classes = [UploadRateThrottle]
     
     def post(self, request):
         try:
@@ -150,8 +162,25 @@ class UploadDatasetView(APIView):
                     'detail': 'Only CSV files are allowed'
                 }, status=status.HTTP_400_BAD_REQUEST)
             
+            # Size limit (the request body is also capped by DATA_UPLOAD_MAX_MEMORY_SIZE)
+            if file_obj.size > settings.MAX_UPLOAD_BYTES:
+                return Response({
+                    'error': 'File too large',
+                    'detail': f'CSV files must be smaller than {settings.MAX_UPLOAD_BYTES // (1024 * 1024)} MB'
+                }, status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE)
+
+            # CSV is text: reject binary content disguised with a .csv extension
+            head = file_obj.read(8192)
+            file_obj.seek(0)
+            if bytes([0]) in head:
+                return Response({
+                    'error': 'Invalid file content',
+                    'detail': 'The file does not look like a text CSV'
+                }, status=status.HTTP_400_BAD_REQUEST)
+
             # Get name or create default
-            name = request.data.get('name', f"Dataset {timezone.now().strftime('%Y-%m-%d %H:%M')}")
+            name = request.data.get('name') or f"Dataset {timezone.now().strftime('%Y-%m-%d %H:%M')}"
+            name = str(name).strip()[:MAX_DATASET_NAME_LENGTH]
             
             # Analyze CSV
             file_obj.seek(0)
@@ -160,58 +189,62 @@ class UploadDatasetView(APIView):
             # Reset pointer for saving
             file_obj.seek(0)
             
-            # Create dataset record
-            dataset = Dataset.objects.create(
-                name=name,
-                original_filename=file_obj.name,
-                uploaded_by=request.user,
-                csv_file=file_obj,
-                total_count=analysis_result['total_count'],
-                avg_flowrate=analysis_result['avg_flowrate'],
-                avg_pressure=analysis_result['avg_pressure'],
-                avg_temperature=analysis_result['avg_temperature'],
-                type_distribution=analysis_result['type_distribution'],
-                preview_rows=analysis_result['preview_rows']
-            )
+            # Create dataset record (atomic: no half-created dataset if equipment parsing fails)
+            with transaction.atomic():
+                dataset = Dataset.objects.create(
+                    name=name,
+                    original_filename=file_obj.name,
+                    uploaded_by=request.user,
+                    csv_file=file_obj,
+                    total_count=analysis_result['total_count'],
+                    avg_flowrate=analysis_result['avg_flowrate'],
+                    avg_pressure=analysis_result['avg_pressure'],
+                    avg_temperature=analysis_result['avg_temperature'],
+                    type_distribution=analysis_result['type_distribution'],
+                    preview_rows=analysis_result['preview_rows']
+                )
             
-            # Create equipment records
-            from .services import normalize_column_name
-            try:
-                # Try reading saved file
-                if dataset.csv_file and hasattr(dataset.csv_file, 'path'):
-                    df = pd.read_csv(dataset.csv_file.path)
-                else:
-                    # Fallback to uploaded file
-                    file_obj.seek(0)
-                    df = pd.read_csv(file_obj)
-            except (ValueError, AttributeError, OSError, FileNotFoundError):
-                df = None
+                # Create equipment records
+                from .services import normalize_column_name
+                try:
+                    # Try reading saved file
+                    if dataset.csv_file and hasattr(dataset.csv_file, 'path'):
+                        df = pd.read_csv(dataset.csv_file.path)
+                    else:
+                        # Fallback to uploaded file
+                        file_obj.seek(0)
+                        df = pd.read_csv(file_obj)
+                except (ValueError, AttributeError, OSError, FileNotFoundError):
+                    df = None
             
-            if df is not None:
-                df.columns = [normalize_column_name(str(col)) for col in df.columns]
+                if df is not None:
+                    df.columns = [normalize_column_name(str(col)) for col in df.columns]
+                    for col in ('flowrate', 'pressure', 'temperature'):
+                        if col in df.columns:
+                            df[col] = pd.to_numeric(df[col], errors='coerce')
                 
-                # Create equipment objects
-                eq_objects = []
-                for _, row in df.iterrows():
-                    # Skip empty rows
-                    if pd.isna(row.get('equipment_name')) and pd.isna(row.get('type')):
-                        continue
+                    # Create equipment objects
+                    eq_objects = []
+                    for _, row in df.iterrows():
+                        # Skip empty rows
+                        if pd.isna(row.get('equipment_name')) and pd.isna(row.get('type')):
+                            continue
                         
-                    eq_objects.append(Equipment(
-                        dataset=dataset,
-                        name=str(row.get('equipment_name', '')).strip() if not pd.isna(row.get('equipment_name')) else '',
-                        type=str(row.get('type', '')).strip() if not pd.isna(row.get('type')) else '',
-                        flowrate=float(row.get('flowrate', 0)) if not pd.isna(row.get('flowrate')) else 0.0,
-                        pressure=float(row.get('pressure', 0)) if not pd.isna(row.get('pressure')) else 0.0,
-                        temperature=float(row.get('temperature', 0)) if not pd.isna(row.get('temperature')) else 0.0
-                    ))
+                        eq_objects.append(Equipment(
+                            dataset=dataset,
+                            name=str(row.get('equipment_name', '')).strip()[:255] if not pd.isna(row.get('equipment_name')) else '',
+                            type=str(row.get('type', '')).strip()[:100] if not pd.isna(row.get('type')) else '',
+                            flowrate=float(row.get('flowrate', 0)) if not pd.isna(row.get('flowrate')) else 0.0,
+                            pressure=float(row.get('pressure', 0)) if not pd.isna(row.get('pressure')) else 0.0,
+                            temperature=float(row.get('temperature', 0)) if not pd.isna(row.get('temperature')) else 0.0
+                        ))
                 
-                # Bulk create in batches
-                if eq_objects:
-                    batch_size = 1000
-                    for i in range(0, len(eq_objects), batch_size):
-                        batch = eq_objects[i:i + batch_size]
-                        Equipment.objects.bulk_create(batch, ignore_conflicts=True)
+                    # Bulk create in batches
+                    if eq_objects:
+                        batch_size = 1000
+                        for i in range(0, len(eq_objects), batch_size):
+                            batch = eq_objects[i:i + batch_size]
+                            Equipment.objects.bulk_create(batch, ignore_conflicts=True)
             
             # Return dataset info
             detail_serializer = DatasetDetailSerializer(dataset, context={'request': request})
@@ -223,14 +256,13 @@ class UploadDatasetView(APIView):
                 'detail': str(e)
             }, status=status.HTTP_400_BAD_REQUEST)
         
-        except Exception as e:
-            import traceback
-            error_detail = str(e)
-            if settings.DEBUG:
-                error_detail += f"\n{traceback.format_exc()}"
+        except Http404:
+            raise
+        except Exception:
+            logger.exception('Dataset view failed')
             return Response({
                 'error': 'Upload failed',
-                'detail': error_detail
+                'detail': 'An internal error occurred.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -242,7 +274,7 @@ class DatasetListView(ListAPIView):
     
     def get_queryset(self):
         # Get last 5 datasets for the authenticated user only
-        return Dataset.objects.filter(uploaded_by=self.request.user).order_by('-uploaded_at')[:5]
+        return Dataset.objects.filter(uploaded_by=self.request.user).order_by('-uploaded_at', '-id')[:5]
     
     def list(self, request, *args, **kwargs):
         # Return array
@@ -250,10 +282,13 @@ class DatasetListView(ListAPIView):
             qs = self.get_queryset()
             serializer = self.get_serializer(qs, many=True)
             return Response(serializer.data, status=status.HTTP_200_OK)
-        except Exception as e:
+        except Http404:
+            raise
+        except Exception:
+            logger.exception('Dataset view failed')
             return Response({
                 'error': 'Failed to fetch datasets',
-                'detail': str(e)
+                'detail': 'An internal error occurred.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -279,10 +314,13 @@ class DatasetDetailView(RetrieveAPIView):
         # Handle errors
         try:
             return super().retrieve(request, *args, **kwargs)
-        except Exception as e:
+        except Http404:
+            raise
+        except Exception:
+            logger.exception('Dataset view failed')
             return Response({
                 'error': 'Failed to fetch dataset details',
-                'detail': str(e)
+                'detail': 'An internal error occurred.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -298,14 +336,13 @@ class DatasetPDFReportView(APIView):
             dataset = get_object_or_404(Dataset, id=pk, uploaded_by=request.user)
             return generate_pdf_response(dataset)
             
-        except Exception as e:
-            import traceback
-            error_detail = str(e)
-            if settings.DEBUG:
-                error_detail += f"\n{traceback.format_exc()}"
+        except Http404:
+            raise
+        except Exception:
+            logger.exception('Dataset view failed')
             return Response({
                 'error': 'PDF generation failed',
-                'detail': error_detail
+                'detail': 'An internal error occurred.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 
@@ -313,6 +350,7 @@ class DatasetAnalyzeView(APIView):
     # Generate AI insights
     permission_classes = [permissions.IsAuthenticated]
     authentication_classes = [TokenAuthentication]
+    throttle_classes = [AIRateThrottle]
     
     def get(self, request, pk):
         # Get AI analysis
@@ -336,18 +374,18 @@ class DatasetAnalyzeView(APIView):
                 'insights': insights
             }, status=status.HTTP_200_OK)
             
-        except AIGenerationError as e:
+        except AIGenerationError:
+            logger.exception('AI generation failed')
             return Response({
                 'error': 'AI generation failed',
-                'detail': str(e)
+                'detail': 'The AI service is currently unavailable.'
             }, status=status.HTTP_503_SERVICE_UNAVAILABLE)
         
-        except Exception as e:
-            import traceback
-            error_detail = str(e)
-            if settings.DEBUG:
-                error_detail += f"\n{traceback.format_exc()}"
+        except Http404:
+            raise
+        except Exception:
+            logger.exception('Dataset view failed')
             return Response({
                 'error': 'Analysis failed',
-                'detail': error_detail
+                'detail': 'An internal error occurred.'
             }, status=status.HTTP_500_INTERNAL_SERVER_ERROR)

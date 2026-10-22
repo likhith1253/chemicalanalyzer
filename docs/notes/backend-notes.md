@@ -4,7 +4,7 @@ Building the backend for ChemViz was all about creating a robust, scalable API t
 
 ## Tech Stack
 
-**Core Framework**: Django 4.2 with Django REST Framework 3.14
+**Core Framework**: Django 5.2 with Django REST Framework 3.14
 
 I picked Django because:
 - Excellent ORM for database operations

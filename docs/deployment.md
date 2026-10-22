@@ -26,11 +26,12 @@ When setting up the Web Service on Render, configure the following:
 
 ### Backend Environment Variables
 Configure the following secrets in the Render dashboard:
-- `SECRET_KEY`: Your Django secret key.
+- `SECRET_KEY`: Your Django secret key (required: the app refuses to start without it when `DEBUG` is off).
 - `DEBUG`: Set to `False`.
 - `GOOGLE_GEMINI_API_KEY`: Your valid API key for AI generation.
 - `ALLOWED_HOSTS`: `your-render-app-url.onrender.com`
-- `CORS_ALLOWED_ORIGINS`: `https://your-vercel-app-url.vercel.app`
+- `CORS_ALLOWED_ORIGINS`: `https://your-vercel-app-url.vercel.app` (comma separated; no wildcard)
+- `CSRF_TRUSTED_ORIGINS`: your frontend and backend https origins (comma separated)
 - `DATABASE_URL`: Automatically populated by Render when attaching the database.
 
 ## 2. Frontend Deployment (Vercel)

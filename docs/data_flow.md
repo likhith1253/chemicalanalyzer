@@ -2,7 +2,7 @@
 
 This document outlines the step-by-step journey of data as it passes through the ChemViz system, from user upload to final report generation.
 
-![Data Flow Diagram](images/data_flow_diagram.png)
+
 
 ## 1. Data Ingestion (React -> Django)
 

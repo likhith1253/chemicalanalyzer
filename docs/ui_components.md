@@ -2,7 +2,7 @@
 
 The React frontend of ChemViz is composed of several key pages and reusable UI components designed to provide a cohesive, modern user experience using a glassmorphism design language.
 
-![Home Screen UI](images/ui_screenshot_home.png)
+
 
 ## Core Pages
 
@@ -22,7 +22,7 @@ The analytical hub for a specific dataset.
 - **AI Insights Panel**: A dedicated section that displays the natural-language recommendations fetched from the Gemini AI, complete with a call-to-action button to trigger the analysis if it hasn't been cached yet.
 - **Export Controls**: A prominent "Download PDF" button that triggers the ReportLab generation on the backend.
 
-![Dataset Details UI](images/ui_screenshot_output.png)
+
 
 ## Reusable UI Elements
 

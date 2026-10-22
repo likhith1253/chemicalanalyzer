@@ -1,68 +1,82 @@
 # ChemViz - Chemical Equipment Analyzer
 
-A full-stack web application built to analyze chemical equipment performance data using AI. It transforms raw CSV data into interactive charts and professional PDF reports, complete with actionable insights.
+Upload a CSV of chemical equipment readings (flowrate, pressure, temperature) and get summary statistics, a type-distribution chart, a downloadable PDF report and AI-generated maintenance notes from Google Gemini.
 
-![Home Screen](docs/images/ui_screenshot_home.png)
+Live demo: [chemicalanalyzer.vercel.app](https://chemicalanalyzer.vercel.app) (the backend runs on a free Render instance, so the first request after idle can take a while).
 
-🌐 **Live Demo**: [chemicalanalyzer.vercel.app](https://chemicalanalyzer.vercel.app)
+## Components
 
-## What It Does
+| Directory | What it is |
+|---|---|
+| `backend/` | Django 5.2 + Django REST Framework API (token auth), pandas for CSV analysis, ReportLab for PDF reports, Gemini for insights |
+| `web-frontend/` | React 18 + Vite single-page app (Chart.js / Recharts, axios) |
+| `pyqt-app/` | Optional PyQt5 desktop client for the same API |
+| `docs/` | Setup, deployment, features and architecture notes |
 
-ChemViz solves the problem of manual data analysis for chemical engineers by automating the processing of equipment logs (flowrate, pressure, temperature). Instead of spending hours in Excel, users can simply upload a dataset and instantly view statistical summaries, data distributions, and most importantly, AI-generated maintenance recommendations powered by Google Gemini.
+## CSV format
 
-### Example Workflow
-**Input**: A CSV file with equipment readings (see [sample input format](docs/images/sample_input_format.png)).
-**Output**: An interactive analytics dashboard and a detailed, downloadable [PDF report](docs/images/ui_screenshot_output.png).
+Required columns (case-insensitive, common variants such as `Flow Rate` are accepted): `Equipment Name`, `Type`, `Flowrate`, `Pressure`, `Temperature`. A sample is in [`docs/sample_equipment_data.csv`](docs/sample_equipment_data.csv).
 
-## Tech Stack
+## API overview
 
-| Layer | Technologies Used | Description |
+All endpoints except register/login require the header `Authorization: Token <token>`.
+
+| Method | Path | Purpose |
 |---|---|---|
-| **Frontend** | React 18, Vite, Chart.js, Tailwind CSS | Modern, responsive SPA with glassmorphism design. |
-| **Backend** | Django 4.2, Django REST Framework, Pandas | Robust API handling file processing and mathematics. |
-| **AI Integration** | Google Gemini 2.5 API | Generates contextual, natural language insights. |
-| **Database** | PostgreSQL | Production database hosted on Render. |
-| **DevOps** | Vercel (Frontend), Render (Backend), GitHub Actions | Fully automated deployment pipeline. |
+| POST | `/api/auth/register/`, `/api/auth/login/` | Returns `{token, username}` (rate limited) |
+| POST | `/api/auth/logout/` | Deletes the caller's token |
+| GET | `/api/auth/profile/` | Current user |
+| POST | `/api/upload/` | Upload a CSV (`.csv`, max 10 MB) |
+| GET | `/api/datasets/` | The caller's last 5 datasets |
+| GET | `/api/datasets/<id>/` | Dataset detail with preview rows |
+| GET | `/api/datasets/<id>/report/pdf/` | PDF report |
+| GET | `/api/datasets/<id>/analyze/` | Gemini insights (needs `GOOGLE_GEMINI_API_KEY`) |
 
-## Architecture Overview
+Datasets are private to the user who uploaded them, and only the 5 most recent per user are kept.
 
-ChemViz follows a standard decoupled full-stack architecture. The robust Django backend acts as the central data processing and intelligence hub, serving requests from the lightweight React frontend.
+## Run locally
 
-![Architecture Diagram](docs/images/architecture_diagram.png)
+```bash
+# backend
+cd backend
+python -m venv venv && source venv/bin/activate   # Windows: venv\Scripts\activate
+pip install -r requirements.txt
+cp .env.example .env        # then set SECRET_KEY, DEBUG=True for local use, GOOGLE_GEMINI_API_KEY (optional)
+python manage.py migrate
+python manage.py runserver
 
-*For a detailed breakdown of the system components, see [Architecture Documentation](docs/architecture.md).*
+# frontend (new terminal)
+cd web-frontend
+npm ci
+echo "VITE_API_BASE_URL=http://localhost:8000/api" > .env.local
+npm run dev
+```
 
-## High-Level Data Flow
+Details: [docs/setup.md](docs/setup.md). Deployment (Render + Vercel): [docs/deployment.md](docs/deployment.md).
 
-1. **User Upload**: A CSV file is uploaded via the React frontend.
-2. **Backend Processing**: Django validates the file, and Pandas calculates statistical metrics.
-3. **Database Insertion**: Raw data and computed metrics are stored in PostgreSQL.
-4. **AI Analysis**: Google Gemini analyzes the metrics to generate maintenance recommendations.
-5. **Presentation**: The frontend renders the results using Chart.js, or the user exports them via a ReportLab-generated PDF.
+`SECRET_KEY` is mandatory whenever `DEBUG` is off; the app refuses to start without it. There is no default admin account: create one with `python manage.py createsuperuser`, or set `ADMIN_USERNAME` / `ADMIN_PASSWORD` and run `python manage.py create_admin`.
 
-![Data Flow Diagram](docs/images/data_flow_diagram.png)
+## Tests
 
-*For an in-depth look at the data pipeline, see [Data Flow Documentation](docs/data_flow.md).*
+```bash
+cd backend
+pip install -r requirements-test.txt
+pytest
+```
 
-## Documentation Links
+90 tests (pytest-django): authentication, per-user dataset isolation, CSV upload validation (extension, size, binary content, path traversal), PDF generation, rate limiting, error-leakage and settings hardening. The frontend has no automated tests; CI (`.github/workflows/ci.yml`) runs the backend tests and the frontend build.
 
-- [🔧 Setup Guide](docs/setup.md) - How to run the project locally.
-- [✨ Features list](docs/features.md) - Detailed breakdown of what the application can do.
-- [📖 User Guide](docs/how_to_use.md) - Step-by-step instructions for end-users.
-- [🖥️ UI Components](docs/ui_components.md) - Explanations of the different pages and visuals.
-- [🚀 Deployment](docs/deployment.md) - Instructions for pushing to production.
-- [🏗️ Architecture](docs/architecture.md) - Deep dive into the system design.
-- [🔄 Data Flow](docs/data_flow.md) - How data moves through the app.
+## Documentation
 
-## Future Enhancements
-- Real-time collaboration on datasets.
-- Export to Excel format.
-- Historical trend analysis across datasets.
-- Email notifications for analysis completion.
-- API rate limiting and Redis caching.
+- [Setup](docs/setup.md), [Deployment](docs/deployment.md), [Features](docs/features.md), [User guide](docs/how_to_use.md), [UI components](docs/ui_components.md), [Architecture](docs/architecture.md), [Data flow](docs/data_flow.md)
+- Personal development write-ups (narrative, not reference): [`docs/notes/`](docs/notes/)
 
-## Contact
+## Known limitations
 
-Built by Likhith.
-- **Source Code**: [GitHub](https://github.com/likhith1253/chemicalanalyzer)
-- Questions or want to discuss the implementation? Feel free to reach out via GitHub!
+- Auth tokens do not expire (DRF `TokenAuthentication`); they are removed on logout.
+- Uploaded CSV files are stored on the web instance's local disk, which is ephemeral on Render's free tier; the parsed data and statistics live in the database.
+- `google-generativeai` is a deprecated Google SDK; migrating to the newer `google-genai` package is pending.
+
+## License
+
+[MIT](LICENSE) (c) Likhith Ponnada

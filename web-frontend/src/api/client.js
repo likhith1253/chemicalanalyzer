@@ -11,7 +11,8 @@ export const apiClient = axios.create({
   headers: {
     'Content-Type': 'application/json',
   },
-  withCredentials: true,
+  // Auth uses an Authorization header, not cookies.
+  withCredentials: false,
   timeout: 30000, // 30 seconds timeout
 });
 

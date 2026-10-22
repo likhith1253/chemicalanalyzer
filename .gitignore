@@ -1,40 +1,38 @@
-venv/
-node_modules/
-.env
-db.sqlite3
-__pycache__/
-# Environment variables
+# Environment / secrets
 .env
 .env.local
-backend/.env
 *.env
-
-# API Keys & Secrets
-GEMINI_API_KEY
+!.env.example
+backend/.env
 secrets/
 
 # Python
 __pycache__/
 *.py[cod]
-*$py.class
 venv/
 env/
-.venv
+.venv/
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Django runtime data
+backend/db.sqlite3
+db.sqlite3
+backend/media/
+backend/staticfiles/
+
+# Node / React
+node_modules/
 dist/
 build/
+npm-debug.log*
+# the backend has no Node dependencies; only web-frontend/package-lock.json is used
+backend/package-lock.json
 
-# Node/React
-node_modules/
-build/
-.next
-npm-debug.log
-
-# IDE
+# IDE / OS
 .vscode/
 .idea/
 *.swp
-*.swo
-
-# OS
 .DS_Store
 Thumbs.db

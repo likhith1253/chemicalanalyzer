@@ -1,111 +1,60 @@
 import pytest
-from django.contrib.auth.models import User
-from rest_framework.test import APIClient
 from rest_framework.authtoken.models import Token
 
 
 class TestAuthenticationAPI:
-    """Test authentication API endpoints"""
-    
+    def test_register_returns_token(self, api_client, db):
+        r = api_client.post('/api/auth/register/', {'username': 'newuser', 'password': 'a-good-pass-123'}, format='json')
+        assert r.status_code == 201
+        assert set(r.data) == {'token', 'username'}
+        assert Token.objects.filter(key=r.data['token']).exists()
+
+    def test_register_duplicate_username(self, api_client, user):
+        r = api_client.post('/api/auth/register/', {'username': 'testuser', 'password': 'a-good-pass-123'}, format='json')
+        assert r.status_code == 400
+
+    def test_register_short_password(self, api_client, db):
+        r = api_client.post('/api/auth/register/', {'username': 'x', 'password': 'short'}, format='json')
+        assert r.status_code == 400
+
     def test_login_success(self, api_client, user):
-        """Test successful login"""
-        data = {
-            'username': 'testuser',
-            'password': 'testpass123'
-        }
-        
-        response = api_client.post('/api/auth/login/', data, format='json')
-        
-        assert response.status_code == 200
-        assert 'token' in response.data
-        assert response.data['token'] is not None
-        
-        # Verify token was created for user
-        token = Token.objects.get(user=user)
-        assert response.data['token'] == token.key
-    
-    def test_login_invalid_credentials(self, api_client):
-        """Test login with invalid credentials"""
-        data = {
-            'username': 'wronguser',
-            'password': 'wrongpass'
-        }
-        
-        response = api_client.post('/api/auth/login/', data, format='json')
-        
-        assert response.status_code == 401
-        assert 'token' not in response.data
-    
-    def test_login_missing_fields(self, api_client):
-        """Test login with missing fields"""
-        # Missing password
-        data = {'username': 'testuser'}
-        response = api_client.post('/api/auth/login/', data, format='json')
-        assert response.status_code == 400
-        
-        # Missing username
-        data = {'password': 'testpass123'}
-        response = api_client.post('/api/auth/login/', data, format='json')
-        assert response.status_code == 400
-        
-        # Missing both
-        data = {}
-        response = api_client.post('/api/auth/login/', data, format='json')
-        assert response.status_code == 400
-    
-    def test_login_nonexistent_user(self, api_client):
-        """Test login with non-existent user"""
-        data = {
-            'username': 'nonexistent',
-            'password': 'somepass'
-        }
-        
-        response = api_client.post('/api/auth/login/', data, format='json')
-        
-        assert response.status_code == 401
-        assert 'token' not in response.data
-    
-    def test_token_authentication(self, auth_client, user):
-        """Test token-based authentication"""
-        # Get user info with authenticated client
-        response = auth_client.get('/api/datasets/')
-        
-        assert response.status_code == 200
-        assert 'results' in response.data
-    
-    def test_unauthenticated_access(self, api_client):
-        """Test access without authentication"""
-        # Try to access protected endpoint without token
-        response = api_client.get('/api/datasets/')
-        
-        assert response.status_code == 401
-    
-    def test_invalid_token(self, api_client):
-        """Test access with invalid token"""
-        # Set invalid token
+        r = api_client.post('/api/auth/login/', {'username': 'testuser', 'password': 'testpass123'}, format='json')
+        assert r.status_code == 200
+        assert r.data['token'] == Token.objects.get(user=user).key
+
+    def test_login_is_idempotent(self, api_client, user):
+        d = {'username': 'testuser', 'password': 'testpass123'}
+        first = api_client.post('/api/auth/login/', d, format='json').data['token']
+        assert api_client.post('/api/auth/login/', d, format='json').data['token'] == first
+
+    @pytest.mark.parametrize('payload', [
+        {'username': 'wronguser', 'password': 'wrongpass'},
+        {'username': 'testuser', 'password': 'wrongpass'},
+    ])
+    def test_login_invalid_credentials(self, api_client, user, payload):
+        r = api_client.post('/api/auth/login/', payload, format='json')
+        assert r.status_code == 401
+        assert 'token' not in r.data
+
+    @pytest.mark.parametrize('payload', [{'username': 'testuser'}, {'password': 'x'}, {}])
+    def test_login_missing_fields(self, api_client, user, payload):
+        assert api_client.post('/api/auth/login/', payload, format='json').status_code == 400
+
+    def test_profile_requires_auth(self, api_client, db):
+        assert api_client.get('/api/auth/profile/').status_code == 401
+
+    def test_profile_returns_own_user(self, auth_client, user):
+        r = auth_client.get('/api/auth/profile/')
+        assert r.status_code == 200
+        assert r.data['username'] == 'testuser'
+
+    def test_invalid_token_rejected(self, api_client, db):
         api_client.credentials(HTTP_AUTHORIZATION='Token invalidtoken123')
-        
-        response = api_client.get('/api/datasets/')
-        
-        assert response.status_code == 401
-    
-    def test_token_creation_on_login(self, api_client, user):
-        """Test that token is created on first login"""
-        # Ensure user has no token initially
+        assert api_client.get('/api/datasets/').status_code == 401
+
+    def test_logout_deletes_token(self, api_client, user):
+        token = Token.objects.create(user=user)
+        api_client.credentials(HTTP_AUTHORIZATION=f'Token {token.key}')
+        assert api_client.post('/api/auth/logout/').status_code == 200
         assert not Token.objects.filter(user=user).exists()
-        
-        # Login
-        data = {
-            'username': 'testuser',
-            'password': 'testpass123'
-        }
-        response = api_client.post('/api/auth/login/', data, format='json')
-        
-        assert response.status_code == 200
-        assert Token.objects.filter(user=user).exists()
-        
-        # Login again should return same token
-        token_key = response.data['token']
-        response2 = api_client.post('/api/auth/login/', data, format='json')
-        assert response2.status_code == 200
-        assert response2.data['token'] == token_key
+        assert api_client.get('/api/datasets/').status_code == 401

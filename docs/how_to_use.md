@@ -22,7 +22,7 @@ Your CSV file must include a header row and contain the following columns:
 | **Pressure** | Number | Pressure measured in bar. |
 | **Temperature** | Number | Temperature measured in °C. |
 
-![Sample Input Format](images/sample_input_format.png)
+
 *(See `docs/sample_equipment_data.csv` in the repository for a working example).*
 
 ## 3. Uploading a Dataset

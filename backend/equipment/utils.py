@@ -56,10 +56,7 @@ def process_csv_content(csv_content: str) -> List[Dict[str, Any]]:
         reader = csv.DictReader(csv_file)
         
         rows = []
-        for row_num, row in enumerate(reader, start=1):  # Start at 1 for header row
-            if row_num == 1:  # Skip header row
-                continue
-                
+        for row_num, row in enumerate(reader, start=2):  # row 1 is the header
             # Convert numeric fields and normalize column names
             processed_row = {}
             for key, value in row.items():

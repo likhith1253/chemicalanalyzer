@@ -1,10 +1,38 @@
 import pytest
 import tempfile
+from django.core.files.uploadedfile import SimpleUploadedFile
 import csv
 from io import StringIO
 from django.contrib.auth.models import User
 from rest_framework.test import APIClient
 from equipment.models import Dataset
+
+
+@pytest.fixture(autouse=True)
+def _isolated_media(settings, tmp_path):
+    """Write uploaded files to a temp dir, never into backend/media."""
+    settings.MEDIA_ROOT = tmp_path / 'media'
+
+
+@pytest.fixture(autouse=True)
+def _clear_throttle_cache():
+    """DRF throttling state lives in the cache; reset it between tests."""
+    from django.core.cache import cache
+    cache.clear()
+    yield
+    cache.clear()
+
+
+@pytest.fixture
+def other_user(db):
+    return User.objects.create_user(username='otheruser', password='otherpass123')
+
+
+@pytest.fixture
+def other_client(other_user):
+    client = APIClient()
+    client.force_authenticate(user=other_user)
+    return client
 
 
 @pytest.fixture
@@ -68,7 +96,8 @@ def equipment_dataset(user, sample_csv_content):
     return Dataset.objects.create(
         name='Test Dataset',
         uploaded_by=user,
-        csv_file=tempfile.NamedTemporaryFile(suffix='.csv', delete=False),
+        original_filename='test.csv',
+        csv_file=SimpleUploadedFile('test.csv', sample_csv_content.encode(), content_type='text/csv'),
         total_count=5,
         avg_flowrate=154.5,
         avg_pressure=2.6,
@@ -85,7 +114,8 @@ def multiple_datasets(user, sample_csv_content):
         dataset = Dataset.objects.create(
             name=f'Test Dataset {i+1}',
             uploaded_by=user,
-            csv_file=tempfile.NamedTemporaryFile(suffix='.csv', delete=False),
+            original_filename='test.csv',
+            csv_file=SimpleUploadedFile('test.csv', sample_csv_content.encode(), content_type='text/csv'),
             total_count=5,
             avg_flowrate=154.5 + i,
             avg_pressure=2.6 + i * 0.1,

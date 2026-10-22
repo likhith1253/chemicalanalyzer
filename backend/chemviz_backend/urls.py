@@ -28,9 +28,7 @@ def api_root(request):
     return JsonResponse({
         "message": "Chemical Equipment Visualizer API",
         "endpoints": {
-            "admin": "/admin/",
             "api": "/api/",
-            "api-auth": "/api-auth/",
             "register": "/api/auth/register/",
             "login": "/api/auth/login/",
             "logout": "/api/auth/logout/",
@@ -46,9 +44,8 @@ def health_check(request):
     return JsonResponse({"status": "ok"})
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path(settings.ADMIN_URL, admin.site.urls),
     path('api/', include('equipment.urls')),
-    path('api-auth/', include('rest_framework.urls')),
     path('api/health/', health_check, name='health_check'),
     path('', api_root, name='api-root'),
 ]

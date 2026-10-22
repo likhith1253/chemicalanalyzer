@@ -2,7 +2,7 @@
 
 ChemViz is built using a modern, decoupled full-stack architecture. By separating the frontend presentation layer from the backend processing and data storage layers, the application achieves high scalability, security, and maintainability.
 
-![Architecture Diagram](images/architecture_diagram.png)
+
 
 ## 1. The Frontend (React 18 + Vite)
 The user interface is a Single Page Application (SPA) built with React.
